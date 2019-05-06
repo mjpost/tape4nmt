@@ -29,6 +29,9 @@ package tools :: .versioner=git .repo="https://github.com/shuoyangd/tape4nmt-too
   pip install -r requirements.txt
 }
 
+# common tools (unpaste, debpe)
+package bin :: .versioner=git .repo="https://github.com/mjpost/bin" .ref=HEAD { }
+
 # using a fork for now, as fairseq evolves pretty fast
 package fairseq :: .versioner=git .repo="https://github.com/shuoyangd/fairseq" .ref=HEAD {
   python setup.py build develop

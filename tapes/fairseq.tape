@@ -153,10 +153,9 @@ task fairseq_train : fairseq
   eval $cmd
 }
 
-
-# the target input here is used to compute naÃ¯ve acc and ppl,
+# the target input here is used to compute naïve acc and ppl,
 # that's why we need post-bpe target input
-task decode : fairseq
+task decode : fairseq bin
     < in=$prepared_data_src[DataSection:test]
     < binarized_data_dir=$out@binarize_data
     < model=$out@fairseq_train
@@ -164,7 +163,6 @@ task decode : fairseq
     :: test_max_sent_length=@
     :: test_beam_size=@
     :: test_batch_size=@
-    :: test_remove_bpe=@
     :: SRC=@
     :: TRG=@
     :: .submitter=$submitter
@@ -180,17 +178,9 @@ task decode : fairseq
     # cmd="python $fairseq/translate.py -gpu $device -model $model -src $src_in -verbose -output $out -batch_size $test_batch_size -beam_size $test_beam_size -max_sent_length $test_max_sent_length"
   # fi
 
-  # if [ ! -z $test_replace_unk ]; then
-  #   cmd=$cmd" -replace_unk"
-  # fi
-
   cmd="python $fairseq/interactive.py --path $model/checkpoint_best.pt $binarized_data_dir --beam $test_beam_size --source-lang $SRC --target-lang $TRG"
-
-  if [ ! -z $test_remove_bpe ] ; then
-    cmd=$cmd" --remove-bpe"
-  fi
 
   echo $cmd
   $cmd < $in > decode.log
-  cat decode.log | grep ^H | cut -f3- > $out
+  cat decode.log | grep ^O | cut -f2 | ${bin}/debpe > $out
 }
