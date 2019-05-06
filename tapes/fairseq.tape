@@ -182,5 +182,5 @@ task decode : fairseq bin
 
   echo $cmd
   $cmd < $in > decode.log
-  cat decode.log | grep ^O | cut -f2 | ${bin}/debpe > $out
+  cat decode.log | grep ^H | cut -f3 | ${bin}/debpe > $out
 }
