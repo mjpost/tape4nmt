@@ -78,6 +78,7 @@ task fairseq_train : fairseq
     :: train_lr_min=@
     :: train_lr_shrink=@
     :: train_lr_scheduler=@
+    :: train_weight_decay=@
     :: train_warmup_init_lr=@
     :: train_warmup_updates=@
     :: train_criterion=@
@@ -139,7 +140,7 @@ task fairseq_train : fairseq
   fi
 
   if [[ ! -z $train_weight_decay ]] ; then
-    cmd+=" --weight-dcay $train_weight_decay"
+    cmd+=" --weight-decay $train_weight_decay"
   fi
 
   if [[ ! -z $train_skip_invalid_size_inputs_valid_test ]] ; then
