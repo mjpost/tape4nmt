@@ -10,7 +10,6 @@ import "download.tape"
 # perform masking on reserved symbols to improve consistency 
 import "mask.tape"
 
-
 # fast align for unmasking
 import "fast_align.tape"
 
@@ -45,12 +44,11 @@ task binarize_data : fairseq
     < dev_src_in=$prepared_data_src[DataSection:dev]
     < dev_trg_in=$prepared_data_trg[DataSection:dev]
     > out
-    :: pyenv=@
-    # :: train_max_shard_size=@
     :: SRC=@
     :: TRG=@
     :: .submitter=$submitter
     :: .resource_flags=$resource_flags_16g
+    :: .pyenv=@
     :: .action_flags=@ {
 
   ln -s $train_src_in train.$SRC
@@ -62,7 +60,7 @@ task binarize_data : fairseq
     --trainpref train --validpref dev \
     --destdir $out
 
-  if [ -f ${out}.train.1.pt ] ; then
+  if [[ -f ${out}.train.1.pt ]] ; then
     touch $out
   fi
 }
@@ -70,7 +68,6 @@ task binarize_data : fairseq
 task fairseq_train : fairseq
     < in=$out@binarize_data
     > out
-    :: pyenv=@
     :: train_arch=@
     :: train_batch_size=@
     :: train_optim=@
@@ -87,11 +84,11 @@ task fairseq_train : fairseq
     :: train_label_smoothing=@
     :: train_clip_norm=@
     :: train_max_tokens=@
-    # :: train_encoder_type=@
     :: train_share_input_output_embed=@
     :: train_skip_invalid_size_inputs_valid_test=@
     :: .submitter=sge
     :: .resource_flags=$resource_flags_train
+    :: .pyenv=@
     :: .action_flags=@ {
 
   cmd="python $fairseq/train.py $in --save-dir $out"
@@ -145,7 +142,7 @@ task fairseq_train : fairseq
     cmd+=" --weight-dcay $train_weight_decay"
   fi
 
-  if [ ! -z $train_skip_invalid_size_inputs_valid_test ] ; then
+  if [[ ! -z $train_skip_invalid_size_inputs_valid_test ]] ; then
     cmd=$cmd" --skip-invalid-size-inputs-valid-test"
   fi
 
@@ -153,7 +150,8 @@ task fairseq_train : fairseq
   eval $cmd
 }
 
-# the target input here is used to compute naïve acc and ppl,
+
+# the target input here is used to compute naive acc and ppl,
 # that's why we need post-bpe target input
 task decode : fairseq bin
     < in=$prepared_data_src[DataSection:test]
@@ -168,15 +166,7 @@ task decode : fairseq bin
     :: .submitter=$submitter
     :: .action_flags=@
     :: .resource_flags=$resource_flags_decode
-    :: pyenv=@ {
-
-  # if [ $refn -eq 1 ]; then
-  #   cmd="python $fairseq/translate.py -gpu $device -model $model -src $src_in -tgt $trg_in -replace_unk -verbose -output $out -batch_size 1 -beam_size 12"
-    # cmd="python $fairseq/translate.py -gpu $device -model $model -src $src_in -verbose -output $out -batch_size $test_batch_size -beam_size $test_beam_size -max_sent_length $test_max_sent_length"
-  # else
-  #   cmd="python $fairseq/translate.py -gpu $device -model $model -src $src_in -tgt $trg_in0 -replace_unk -verbose -output $out -batch_size 1 -beam_size 12"
-    # cmd="python $fairseq/translate.py -gpu $device -model $model -src $src_in -verbose -output $out -batch_size $test_batch_size -beam_size $test_beam_size -max_sent_length $test_max_sent_length"
-  # fi
+    :: .pyenv=@ {
 
   cmd="python $fairseq/interactive.py --path $model/checkpoint_best.pt $binarized_data_dir --beam $test_beam_size --source-lang $SRC --target-lang $TRG"
 
