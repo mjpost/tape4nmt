@@ -44,12 +44,12 @@ task prepare_data : sockeye
     < train_trg_in=$prepared_data_trg[DataSection:train]
     < factor_files=(SourceFactors: no="/dev/null" yes=$factor_files@compute_source_factors[DataSection:train])
     > data
-    :: pyenv=@
     :: train_maxlen=@
     :: source_factors=@
     :: seed=1235813
     :: .submitter=$submitter
     :: .resource_flags=$resource_flags_16g
+    :: .pyenv=@
     :: .action_flags=@ {
 
   export PYTHONPATH=${sockeye}
@@ -78,7 +78,6 @@ task sockeye_train : sockeye
     < dev_trg=$prepared_data_trg[DataSection:dev]
     < dev_factor_files=(SourceFactors: no="/dev/null" yes=$factor_files@compute_source_factors[DataSection:dev])
     > model
-    :: pyenv=@
     :: use_source_factors=(SourceFactors: no yes)
     :: train_batch_type=@
     :: train_batch_size=@
@@ -99,6 +98,7 @@ task sockeye_train : sockeye
     :: num_devices=@
     :: .submitter=$submitter
     :: .resource_flags=$resource_flags_train
+    :: .pyenv=@
     :: .action_flags=@ {
 
   if [[ $use_cpu == "yes" ]]; then
@@ -334,7 +334,7 @@ task sockeye_decode : sockeye tools
     :: .submitter=$submitter
     :: .action_flags=@
     :: .resource_flags=$resource_flags_decode
-    :: pyenv=@ {
+    :: .pyenv=@ {
 
   if [[ $use_cpu == "yes" ]]; then
     device_flag="--use-cpu"
