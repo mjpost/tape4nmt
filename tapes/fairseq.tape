@@ -92,7 +92,7 @@ task fairseq_train : fairseq
     :: .pyenv=@
     :: .action_flags=@ {
 
-  cmd="python $fairseq/train.py $in --save-dir $out"
+  cmd="python $fairseq/train.py $in --save-dir $out --keep-last-epochs 5"
   cmd=$cmd" --lr $train_lr --clip-norm $train_clip_norm --dropout $train_dropout --max-tokens $train_max_tokens --arch $train_arch"
 
   if [ ! -z $train_optim ] ; then
