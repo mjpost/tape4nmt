@@ -59,6 +59,11 @@ task prepare_data : sockeye
     source_factors_flag="--source-factors $(cat $factor_files)"
   fi
 
+  conda deactivate
+  conda activate sockeye
+  module unload cuda100/toolkit
+  module load cuda92/toolkit
+
   python3 -m sockeye.prepare_data \
       --source $train_src_in \
       $source_factors_flag \
@@ -164,7 +169,7 @@ task sockeye_train : sockeye
 
 # Takes all the data and builds a packaged model directory.
 # Ideally this should be used for evaluation.
-task sockeye_package_model : sockeye mosesdecoder sockeye_scripts fast_align
+task package_model : sockeye mosesdecoder sockeye_scripts fast_align
   < subword_model=(SubwordMethod: sentencepiece=$model@train_sentencepiece bpe=$model@train_bpe none="/dev/null")
   < casing_model=(Casing: actual="/dev/null" lower_source="/dev/null" true=$out@train_truecaser)
   < model=$model@sockeye_train
@@ -315,7 +320,7 @@ EOF
   chmod 755 pre.sh post.sh translate.sh
 }
 
-task sockeye_decode : sockeye tools
+task decode : sockeye tools
     < in=$raw_data_test_src
     < bundled_model=$bundle@package_model
     > out="out"
