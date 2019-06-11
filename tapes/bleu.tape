@@ -25,7 +25,10 @@ task sacrebleu : sacrebleu
     > signature
     :: sacrebleu_args=@
     :: TRG=@
-    :: pyenv=@ {
+    :: .submitter=$submitter
+    :: .resource_flags=$resource_flags_train
+    :: .pyenv=@
+    :: .action_flags=$action_flags_success {
 
   # probably should make this a package
   kytea=~/code/kytea

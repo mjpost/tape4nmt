@@ -104,7 +104,7 @@ task sockeye_train : sockeye
     :: .submitter=$submitter
     :: .resource_flags=$resource_flags_train
     :: .pyenv=@
-    :: .action_flags=@ {
+    :: .action_flags=$action_flags_success {
 
   if [[ $use_cpu == "yes" ]]; then
     device="--use-cpu"
