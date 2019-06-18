@@ -185,6 +185,7 @@ task package_model : sockeye mosesdecoder sockeye_scripts fast_align
   :: masking_pattern_files=@
   :: masking_dict_files=@
   :: masking_add_index=@
+  :: masking_unmask=@
   :: subword_method=(SubwordMethod: sentencepiece bpe none)
   :: use_factors=(SourceFactors: no yes)
   :: source_factors=@
@@ -215,14 +216,17 @@ task package_model : sockeye mosesdecoder sockeye_scripts fast_align
   post_cmd="cat"
 
   if [[ $mask == "yes" ]]; then
-    mkdir masker
-    pre_cmd+=" | python \$rundir/sockeye_scripts/masking/mask_terms.py --json"
+    pre_cmd+=" | python3 \$rundir/sockeye_scripts/masking/mask_terms.py --json"
+
+    [[ ! -d data ]] && mkdir data
 
     if [[ $masking_pattern_files != "/dev/null" ]]; then
-      pre_cmd+=" --pattern-files $masking_pattern_files"
+      cp $masking_pattern_files data/masking_patterns.txt
+      pre_cmd+=" --pattern-files \$rundir/data/masking_patterns.txt"
     fi
     if [[ $masking_dict_files != "/dev/null" ]]; then
-      pre_cmd+=" --dict-files $masking_dict_files"
+      cp $masking_dict_files data/masking_dict.txt
+      pre_cmd+=" --dict-files \$rundir/data/masking_dict.txt"
     fi
     if [[ $masking_add_index == "yes" ]] ; then
       pre_cmd+=" --add-index"
@@ -285,7 +289,10 @@ EOF
   fi
 
   if [[ $mask == "yes" ]]; then
-    if [[ $forward_log != "/dev/null" ]]; then
+    if [[ $masking_unmask == "attention" ]]; then
+      post_cmd+=" | python3 \$rundir/sockeye_scripts/masking/bipar.py"
+
+    elif [[ $masking_unmask == "alignment" ]]; then
       # As a temporary hack, handle this in decode_with_bundle
       # # Run fast_align to line up the masks
       # python3 ${fast_align}/src/force_align.py $forward_lexicon $forward_log $reverse_lexicon $reverse_log grow-diag-final-and
@@ -293,11 +300,11 @@ EOF
       # ${fast_align}/src/force_align.py 
 
       # # Align without indices
-      # post_cmd+=" | python \$rundir/sockeye_scripts/masking/mask_terms.py --json --unmask --fast-align
+      # post_cmd+=" | python3 \$rundir/sockeye_scripts/masking/mask_terms.py --json --unmask --fast-align
       post_cmd+=""
     else
       # Align using the indices
-      post_cmd+=" | python \$rundir/sockeye_scripts/masking/mask_terms.py --json --unmask"
+      post_cmd+=" | python3 \$rundir/sockeye_scripts/masking/mask_terms.py --json --unmask"
     fi
   fi
 
@@ -356,11 +363,12 @@ task decode : sockeye tools
     --beam-size $test_beam_size \
     --batch-size $test_batch_size \
     --max-input-len $test_max_sent_length \
+    --output-attention \
     | tee ${out}.json | jq -r .text > $out 2> $log
 
   # TEMPORARY HACK
-   if [[ $do_masking == "yes" && $masking_add_index == "no" ]]; then
-     cat corpus | python3 ${fast_align}/src/force_align.py $forward_lexicon $forward_log $reverse_lexicon $reverse_log grow-diag-final-and > alignments
-     cat ${out}.json | python3 ${sockeye_scripts}/masking/replace_masks.py -a alignments > t
-   fi
+  # if [[ $do_masking == "yes" && $masking_add_index == "no" ]]; then
+  #   cat corpus | python3 ${fast_align}/src/force_align.py $forward_lexicon $forward_log $reverse_lexicon $reverse_log grow-diag-final-and > alignments
+  #   cat ${out}.json | python3 ${sockeye_scripts}/masking/replace_masks.py -a alignments > t
+  # fi
 }

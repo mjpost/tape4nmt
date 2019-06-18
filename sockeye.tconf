@@ -53,6 +53,7 @@ global {
   masking_pattern_files="/home/hltcoe/mpost/code/tape4nmt/patterns.txt"
   masking_dict_files="/dev/null"
   masking_prob=1.0
+  masking_unmask=(MaskIndex: yes="none" no="attention")  # values "none", "attention", or "align"
 
   # EVALUATION
   sacrebleu_args=""
