@@ -249,6 +249,9 @@ task package_model : sockeye mosesdecoder sockeye_scripts fast_align
       # Align using the indices
       post_cmd+=" | python3 \$rundir/sockeye_scripts/masking/mask_terms.py --json --unmask"
     fi
+  else
+    # copy the "translation" field to "text" since Sockeye doesn't overwrite that
+    post_cmd+=" | \$rundir/sockeye_scripts/preparation/wrap_in_json translation text"
   fi
 
   if [[ $tokenize == "yes" ]]; then
@@ -299,7 +302,7 @@ EOF
   fi  
 
   if [[ $subword_method != "none" ]]; then
-      post_cmd+=" | \$rundir/sockeye_scripts/preparation/prepare.py --input-field translation --undo --subword-type $subword_method"
+      post_cmd+=" | \$rundir/sockeye_scripts/preparation/prepare.py --input-field text --undo --subword-type $subword_method"
   fi
 
   if [[ $tokenize == "yes" ]]; then
