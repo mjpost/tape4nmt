@@ -231,6 +231,24 @@ task package_model : sockeye mosesdecoder sockeye_scripts fast_align
     if [[ $masking_add_index == "yes" ]] ; then
       pre_cmd+=" --add-index"
     fi
+
+    if [[ $masking_unmask == "attention" ]]; then
+      post_cmd+=" | python3 \$rundir/sockeye_scripts/masking/bipar.py"
+
+    elif [[ $masking_unmask == "alignment" ]]; then
+      # As a temporary hack, handle this in decode_with_bundle
+      # # Run fast_align to line up the masks
+      # python3 ${fast_align}/src/force_align.py $forward_lexicon $forward_log $reverse_lexicon $reverse_log grow-diag-final-and
+
+      # ${fast_align}/src/force_align.py 
+
+      # # Align without indices
+      # post_cmd+=" | python3 \$rundir/sockeye_scripts/masking/mask_terms.py --json --unmask --fast-align
+      post_cmd+=""
+    else
+      # Align using the indices
+      post_cmd+=" | python3 \$rundir/sockeye_scripts/masking/mask_terms.py --json --unmask"
+    fi
   fi
 
   if [[ $tokenize == "yes" ]]; then
@@ -288,26 +306,6 @@ EOF
     post_cmd+=" | \$rundir/sockeye_scripts/preparation/wrap_in_json text detok_translation \"\$rundir/tokenizer/detokenizer.perl -q -b -l $TRG\""
   fi
 
-  if [[ $mask == "yes" ]]; then
-    if [[ $masking_unmask == "attention" ]]; then
-      post_cmd+=" | python3 \$rundir/sockeye_scripts/masking/bipar.py"
-
-    elif [[ $masking_unmask == "alignment" ]]; then
-      # As a temporary hack, handle this in decode_with_bundle
-      # # Run fast_align to line up the masks
-      # python3 ${fast_align}/src/force_align.py $forward_lexicon $forward_log $reverse_lexicon $reverse_log grow-diag-final-and
-
-      # ${fast_align}/src/force_align.py 
-
-      # # Align without indices
-      # post_cmd+=" | python3 \$rundir/sockeye_scripts/masking/mask_terms.py --json --unmask --fast-align
-      post_cmd+=""
-    else
-      # Align using the indices
-      post_cmd+=" | python3 \$rundir/sockeye_scripts/masking/mask_terms.py --json --unmask"
-    fi
-  fi
-
   echo $pre_cmd >> pre.sh
   echo $post_cmd >> post.sh
 
@@ -319,7 +317,12 @@ EOF
 bundledir=\$(dirname \$0)
 
 \$bundledir/pre.sh ${SRC} \\
-  | PYTHONPATH=\$bundledir/sockeye python3 -m sockeye.translate -q -m \$bundledir/sockeye_model --json-input --output-type json "\$@" \\
+  | PYTHONPATH=\$bundledir/sockeye python3 -m sockeye.translate \\
+    -q \\
+    -m \$bundledir/sockeye_model \\
+    --json-input --output-type json \\
+    --output-attention \\
+    "\$@" \\
   | \$bundledir/post.sh
 EOF
 
@@ -354,8 +357,8 @@ task decode : sockeye tools
     device_flag="--device-ids -1"
   fi
 
-  ln -s $in corpus.in
-  ln -s ${bundled_model} bundle
+  ln -sf $in corpus.in
+  ln -sf ${bundled_model} bundle
 
   cat $in | ${bundled_model}/translate.sh \
     $device_flag \
@@ -363,7 +366,6 @@ task decode : sockeye tools
     --beam-size $test_beam_size \
     --batch-size $test_batch_size \
     --max-input-len $test_max_sent_length \
-    --output-attention \
     | tee ${out}.json | jq -r .text > $out 2> $log
 
   # TEMPORARY HACK
