@@ -163,7 +163,6 @@ task sockeye_train : sockeye
     --batch-size=$train_batch_size \
     --checkpoint-frequency=$train_checkpoint_freq \
     --decode-and-evaluate=$train_num_decode_and_eval \
-    --decode-and-evaluate-use-cpu \
     --keep-last-params=10
 }
 
