@@ -40,8 +40,12 @@ task apply_bpe : subword_nmt
 
   echo "GLOSSARY FLAG: $glossary_flag"
 
-  cat $src_in | parallel -j 10 -k --block-size 10k --pipe "subword-nmt apply-bpe --codes $model $glossary_flag" > $src
-  cat $trg_in | parallel -j 10 -k --block-size 10k --pipe "subword-nmt apply-bpe --codes $model $glossary_flag" > $trg
+  # cat $src_in | parallel -j 10 -k --block-size 10k --pipe "subword-nmt apply-bpe --codes $model $glossary_flag" > $src
+  # cat $trg_in | parallel -j 10 -k --block-size 10k --pipe "subword-nmt apply-bpe --codes $model $glossary_flag" > $trg
+
+  cat $src_in | subword-nmt apply-bpe --codes $model $glossary_flag > $src &
+  cat $trg_in | subword-nmt apply-bpe --codes $model $glossary_flag > $trg &
+  wait
 }
 
 task train_sentencepiece : sentencepiece
