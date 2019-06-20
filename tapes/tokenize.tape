@@ -15,8 +15,13 @@ task tokenize : mosesdecoder tools sockeye_scripts
   > src
   > trg
   :: SRC=@ TRG=@
+  :: tokenize_protect=@
   :: tokenizer=(Tokenizer: default kytea)
   :: .submitter=$submitter .action_flags=$action_flags .resource_flags=$resource_flags {
+
+  if [[ -z $tokenize_protect ]]; then
+    tokenize_protect=${mosesdecoder}/scripts/tokenizer/basic-protected-patterns
+  fi
 
   for lang in $SRC $TRG; do
     if [[ $lang == $SRC ]]; then
@@ -30,7 +35,7 @@ task tokenize : mosesdecoder tools sockeye_scripts
         cat $get | ${sockeye_scripts}/cjk/segment-cjk.py \
           | ${mosesdecoder}/scripts/tokenizer/normalize-punctuation.perl -l $lang \
           | ${mosesdecoder}/scripts/tokenizer/remove-non-printing-char.perl \
-          | ${mosesdecoder}/scripts/tokenizer/tokenizer.perl -l $lang -no-escape -protected ${mosesdecoder}/scripts/tokenizer/basic-protected-patterns -q \
+          | ${mosesdecoder}/scripts/tokenizer/tokenizer.perl -l $lang -no-escape -protected ${tokenize_protect} -q \
           > $put &
     elif [[ $tokenizer == "kytea" && $lang == "ja" ]]; then
       kytea=~/code/kytea
@@ -39,7 +44,7 @@ task tokenize : mosesdecoder tools sockeye_scripts
       cat $get \
         | ${mosesdecoder}/scripts/tokenizer/normalize-punctuation.perl -l $lang \
         | ${mosesdecoder}/scripts/tokenizer/remove-non-printing-char.perl \
-        | ${mosesdecoder}/scripts/tokenizer/tokenizer.perl -l $lang -no-escape -protected ${mosesdecoder}/scripts/tokenizer/basic-protected-patterns -q \
+        | ${mosesdecoder}/scripts/tokenizer/tokenizer.perl -l $lang -no-escape -protected ${tokenize_protect} -q \
         > $put &
     fi
   done

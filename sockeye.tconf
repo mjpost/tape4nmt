@@ -95,6 +95,9 @@ global {
   # Preprocessing options
   ##################################################################################################
 
+  # protected patterns for tokenizer ("" for default)
+  tokenize_protect=""
+
   # sentencepiece options
   sentencepiece_vocab_size=8000
   sentencepiece_model_type="unigram"
