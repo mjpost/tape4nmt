@@ -214,6 +214,8 @@ task package_model : sockeye mosesdecoder sockeye_scripts fast_align
   pre_cmd="\$rundir/sockeye_scripts/preparation/wrap_in_json -r raw_text"
   post_cmd="cat"
 
+  output_attention_flag=""
+
   if [[ $mask == "yes" ]]; then
     pre_cmd+=" | python3 \$rundir/sockeye_scripts/masking/mask_terms.py --json"
 
@@ -233,17 +235,9 @@ task package_model : sockeye mosesdecoder sockeye_scripts fast_align
 
     if [[ $masking_unmask == "attention" ]]; then
       post_cmd+=" | python3 \$rundir/sockeye_scripts/masking/bipar.py"
-
+      output_attention_flag=" --output-attention"
     elif [[ $masking_unmask == "alignment" ]]; then
-      # As a temporary hack, handle this in decode_with_bundle
-      # # Run fast_align to line up the masks
-      # python3 ${fast_align}/src/force_align.py $forward_lexicon $forward_log $reverse_lexicon $reverse_log grow-diag-final-and
-
-      # ${fast_align}/src/force_align.py 
-
-      # # Align without indices
-      # post_cmd+=" | python3 \$rundir/sockeye_scripts/masking/mask_terms.py --json --unmask --fast-align
-      post_cmd+=""
+      post_cmd+=" | python3 \$rundir/sockeye_scripts/masking/add_alignment.py $forward_lexicon $forward_log $reverse_lexicon $reverse_log | python3 \$rundir/sockeye_scripts/masking/bipar.py"
     else
       # Align using the indices
       post_cmd+=" | python3 \$rundir/sockeye_scripts/masking/mask_terms.py --json --unmask"
