@@ -197,6 +197,10 @@ task package_model : sockeye mosesdecoder sockeye_scripts fast_align
   cp -a ${sockeye} sockeye
   cp -a ${sockeye_scripts} sockeye_scripts
 
+  # fast_align
+  mkdir bin
+  cp ${fast_align}/build/{fast_align,atools} bin
+
   ## Pre-processing and post-processing
   rm -f pre.sh
   echo "#!/usr/bin/env bash" >> pre.sh
@@ -209,6 +213,9 @@ task package_model : sockeye mosesdecoder sockeye_scripts fast_align
   echo >> post.sh
   echo "lang=\${1:-$TRG}" >> post.sh
   echo "rundir=\$(dirname \$0)" >> post.sh
+  echo >> post.sh
+  echo "export PATH+=:\$rundir/bin"   >> post.sh
+  echo >> post.sh
 
   # Creates a JSON object from the plain input
   pre_cmd="\$rundir/sockeye_scripts/preparation/wrap_in_json -r raw_text"
@@ -306,7 +313,7 @@ EOF
   echo $post_cmd >> post.sh
 
   ## Translate
-  cp -a ${model} sockeye_model
+  cp -a ${model} model
   cat > translate.sh <<EOF
 #!/usr/bin/env bash
 
