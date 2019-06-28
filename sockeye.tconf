@@ -97,6 +97,7 @@ global {
 
   # protected patterns for tokenizer ("" for default)
   tokenize_protect=""
+  tokenizer=(Tokenizer: default kytea)
 
   # sentencepiece options
   sentencepiece_vocab_size=8000

@@ -163,6 +163,7 @@ task sockeye_train : sockeye
     --batch-size=$train_batch_size \
     --checkpoint-frequency=$train_checkpoint_freq \
     --decode-and-evaluate=$train_num_decode_and_eval \
+    --decode-and-evaluate-device-id -1 \
     --keep-last-params=10
 }
 
@@ -185,6 +186,8 @@ task package_model : sockeye mosesdecoder sockeye_scripts fast_align
   :: masking_dict_files=@
   :: masking_add_index=@
   :: masking_unmask=@
+  :: tokenizer=@
+  :: tokenize_protect=@
   :: subword_method=(SubwordMethod: sentencepiece bpe none)
   :: use_factors=(SourceFactors: no yes)
   :: source_factors=@
@@ -258,21 +261,29 @@ task package_model : sockeye mosesdecoder sockeye_scripts fast_align
     mkdir tokenizer
     cp -a ${mosesdecoder}/scripts/tokenizer/* tokenizer/
     cp -a ${mosesdecoder}/scripts/share .
-    cat > tokenizer/moses_tokenizer <<EOF
+    cp $tokenize_protect tokenizer/protext.txt
+
+    tokenizer_cmd=""
+    if [[ $tokenizer == "kytea" && $SRC == "ja" ]]; then
+        tokenizer_cmd="~mpost/code/kytea/src/bin/kytea -model $kytea/data/model.bin -out tok"
+    else
+        tokenizer_cmd="\$rundir/normalize-punctuation.perl -b -l $SRC \\
+          | \$rundir/remove-non-printing-char.perl -b \\
+          | \$rundir/tokenizer.perl -b -l $SRC -no-escape -protected \$rundir/protect.txt -q"
+    fi
+    cat > tokenizer/tokenizer <<EOF
 #!/bin/bash
 
 rundir=\$(dirname \$0)
-\$rundir/normalize-punctuation.perl -b -l $SRC \\
-  | \$rundir/remove-non-printing-char.perl -b \\
-  | \$rundir/tokenizer.perl -b -l $SRC -no-escape -protected \$rundir/basic-protected-patterns -q
+$tokenizer_cmd
 EOF
-    chmod 755 tokenizer/moses_tokenizer
-    if [[ $SRC == "zh" || $SRC == "ja" || $SRC == "ko" ]]; then
+    chmod 755 tokenizer/tokenizer
+    if [[ $tokenizer == "default" && ( $SRC == "zh" || $SRC == "ja" || $SRC == "ko" ) ]]; then
       cp ${sockeye_scripts}/cjk/segment-cjk.py tokenizer/
       pre_cmd+=" | \$rundir/tokenizer/segment-cjk.py --json"
     fi
 
-    pre_cmd+=" | \$rundir/sockeye_scripts/preparation/wrap_in_json text tok_text \$rundir/tokenizer/moses_tokenizer"
+    pre_cmd+=" | \$rundir/sockeye_scripts/preparation/wrap_in_json text tok_text \$rundir/tokenizer/tokenizer"
   fi
 
   prepare_casing_arg=""

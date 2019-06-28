@@ -16,7 +16,7 @@ task tokenize : mosesdecoder tools sockeye_scripts
   > trg
   :: SRC=@ TRG=@
   :: tokenize_protect=@
-  :: tokenizer=(Tokenizer: default kytea)
+  :: tokenizer=@
   :: .submitter=$submitter .action_flags=$action_flags .resource_flags=$resource_flags {
 
   if [[ -z $tokenize_protect ]]; then
