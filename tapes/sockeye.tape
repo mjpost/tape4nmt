@@ -261,15 +261,20 @@ task package_model : sockeye mosesdecoder sockeye_scripts fast_align
     mkdir tokenizer
     cp -a ${mosesdecoder}/scripts/tokenizer/* tokenizer/
     cp -a ${mosesdecoder}/scripts/share .
-    cp $tokenize_protect tokenizer/protext.txt
+    if [[ $tokenize_protect == "" ]]; then
+        tokenize_protect="basic-protected-patterns"
+    else
+        cp $tokenize_protect tokenizer/protect.txt
+        tokenize_protect="protect.txt"
+    fi
 
     tokenizer_cmd=""
     if [[ $tokenizer == "kytea" && $SRC == "ja" ]]; then
-        tokenizer_cmd="~mpost/code/kytea/src/bin/kytea -model $kytea/data/model.bin -out tok"
+        tokenizer_cmd="~mpost/code/kytea/src/bin/kytea -model ~mpost/code/kytea/data/model.bin -out tok"
     else
         tokenizer_cmd="\$rundir/normalize-punctuation.perl -b -l $SRC \\
           | \$rundir/remove-non-printing-char.perl -b \\
-          | \$rundir/tokenizer.perl -b -l $SRC -no-escape -protected \$rundir/protect.txt -q"
+          | \$rundir/tokenizer.perl -b -l $SRC -no-escape -protected \$rundir/$tokenize_protect -q"
     fi
     cat > tokenizer/tokenizer <<EOF
 #!/bin/bash
@@ -333,7 +338,7 @@ bundledir=\$(dirname \$0)
 \$bundledir/pre.sh ${SRC} \\
   | PYTHONPATH=\$bundledir/sockeye python3 -m sockeye.translate \\
     -q \\
-    -m \$bundledir/sockeye_model \\
+    -m \$bundledir/model \\
     --json-input --output-type json \\
     --output-attention \\
     "\$@" \\
