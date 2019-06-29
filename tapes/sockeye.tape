@@ -222,7 +222,7 @@ task package_model : sockeye mosesdecoder sockeye_scripts fast_align
 
   # Creates a JSON object from the plain input
   pre_cmd="\$rundir/sockeye_scripts/preparation/wrap_in_json -r raw_text"
-  post_cmd="cat"
+  post_cmd="\$rundir/sockeye_scripts/preparation/wrap_in_json translation text"
 
   output_attention_flag=""
 
