@@ -222,6 +222,7 @@ task package_model : sockeye mosesdecoder sockeye_scripts fast_align
 
   # Creates a JSON object from the plain input
   pre_cmd="\$rundir/sockeye_scripts/preparation/wrap_in_json -r raw_text"
+  # copy the "translation" field to "text" since Sockeye doesn't overwrite that
   post_cmd="\$rundir/sockeye_scripts/preparation/wrap_in_json translation text"
 
   output_attention_flag=""
@@ -247,14 +248,15 @@ task package_model : sockeye mosesdecoder sockeye_scripts fast_align
       post_cmd+=" | python3 \$rundir/sockeye_scripts/masking/bipar.py"
       output_attention_flag=" --output-attention"
     elif [[ $masking_unmask == "alignment" ]]; then
-      post_cmd+=" | python3 \$rundir/sockeye_scripts/masking/add_alignment.py $forward_lexicon $forward_log $reverse_lexicon $reverse_log | python3 \$rundir/sockeye_scripts/masking/bipar.py"
+      post_cmd+=" | python3 \$rundir/sockeye_scripts/preparation/prepare.py --input-field text --undo --subword-type $subword_method"
+      post_cmd+=" | python3 \$rundir/sockeye_scripts/masking/add_alignment.py $forward_lexicon $forward_log $reverse_lexicon $reverse_log"
+      post_cmd+=" | python3 \$rundir/sockeye_scripts/masking/bipar.py"
+      post_cmd+=" | \$rundir/sockeye_scripts/preparation/prepare.py --input-field text --undo --subword-type $subword_method"
     else
       # Align using the indices
       post_cmd+=" | python3 \$rundir/sockeye_scripts/masking/mask_terms.py --json --unmask"
+      post_cmd+=" | \$rundir/sockeye_scripts/preparation/prepare.py --input-field text --undo --subword-type $subword_method"
     fi
-  else
-    # copy the "translation" field to "text" since Sockeye doesn't overwrite that
-    post_cmd+=" | \$rundir/sockeye_scripts/preparation/wrap_in_json translation text"
   fi
 
   if [[ $tokenize == "yes" ]]; then
@@ -316,10 +318,6 @@ EOF
   if [[ $use_factors == "yes" ]]; then
     pre_cmd+=" | PYTHONPATH=\$rundir/sockeye_scripts python3 -m source_factors.compute --json $source_factors"
   fi  
-
-  if [[ $subword_method != "none" ]]; then
-      post_cmd+=" | \$rundir/sockeye_scripts/preparation/prepare.py --input-field text --undo --subword-type $subword_method"
-  fi
 
   if [[ $tokenize == "yes" ]]; then
     post_cmd+=" | \$rundir/sockeye_scripts/preparation/wrap_in_json text detok_translation \"\$rundir/tokenizer/detokenizer.perl -q -b -l $TRG\""
