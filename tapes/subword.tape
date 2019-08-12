@@ -14,19 +14,29 @@ global {
 task train_bpe : subword_nmt
   < src_in=$recased_data_src[DataSection:train]
   < trg_in=$recased_data_trg[DataSection:train]
-  > model="bpe.model"
+  > src_model="bpe.model.src"
+  > trg_model="bpe.model.trg"
+  :: subword_joint=@
   :: bpe_operations=@
   :: SRC=@
   :: TRG=@
   :: .submitter=$submitter .action_flags=$action_flags .resource_flags=$resource_flags_16g {
 
-  subword-nmt learn-joint-bpe-and-vocab -i $src_in $trg_in -s $bpe_operations -o $model --write-vocabulary bpe.vocab.$SRC bpe.vocab.$TRG -v 2> log
+  if [[ $subword_joint == 'yes' ]]; then
+    subword-nmt learn-joint-bpe-and-vocab -i $src_in $trg_in -s $bpe_operations -o $src_model --write-vocabulary bpe.vocab.$SRC bpe.vocab.$TRG -v 2> log
+    ln -sf $src_model $trg_model
+  else
+    subword-nmt learn-bpe -i $src_in -s $bpe_operations -o $src_model -v 2> log.src &
+    subword-nmt learn-bpe -i $trg_in -s $bpe_operations -o $trg_model -v 2> log.trg &
+    wait
+  fi
 }
 
 task apply_bpe : subword_nmt
   < src_in=$recased_data_src
   < trg_in=$recased_data_trg
-  < model=$model@train_bpe
+  < src_model=$src_model@train_bpe
+  < trg_model=$trg_model@train_bpe
   < observed_masks=(DoMasking: no="/dev/null" yes=$masks@mask[DataSection:train])
   > src
   > trg
@@ -43,8 +53,8 @@ task apply_bpe : subword_nmt
   # cat $src_in | parallel -j 10 -k --block-size 10k --pipe "subword-nmt apply-bpe --codes $model $glossary_flag" > $src
   # cat $trg_in | parallel -j 10 -k --block-size 10k --pipe "subword-nmt apply-bpe --codes $model $glossary_flag" > $trg
 
-  cat $src_in | subword-nmt apply-bpe --codes $model $glossary_flag > $src &
-  cat $trg_in | subword-nmt apply-bpe --codes $model $glossary_flag > $trg &
+  cat $src_in | subword-nmt apply-bpe --codes $src_model $glossary_flag > $src &
+  cat $trg_in | subword-nmt apply-bpe --codes $trg_model $glossary_flag > $trg &
   wait
 }
 

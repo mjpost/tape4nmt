@@ -76,11 +76,11 @@ global {
   resource_flags_16cpu="-l mem_free=16g,num_proc=16,h_rt=12:00:00"
 
   # SGE: flags for training a model
-  num_devices=2
-  resource_flags_train="-q gpu.q@@1080 -l gpu=2,mem_free=20g,h_rt=504:00:00"
+  num_devices=1
+  resource_flags_train="-q gpu.q@@2080 -l gpu=1,mem_free=20g,h_rt=504:00:00"
 
   # SGE: flags for decoding
-  resource_flags_decode="-q gpu.q -l gpu=1,mem_free=4g,h_rt=4:00:00"
+  resource_flags_decode="-q gpu.q@@2080 -l gpu=1,mem_free=4g,h_rt=4:00:00"
 
   # The default submitter: shell (run locally) or sge (run on a grid)
   submitter=(TestMode: no="sge" yes="shell")
@@ -105,7 +105,8 @@ global {
   sentencepiece_alpha=0.5
 
   # no of BPE operations
-  bpe_operations=32000
+  subword_joint=(SubwordJoint: yes no)
+  bpe_operations=(SubwordSize: 1000 2000 4000 8000 16000 24000)
 
   # options for cleaning training data
   train_maxlen=100
