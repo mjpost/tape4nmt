@@ -257,6 +257,9 @@ task package_model : sockeye mosesdecoder sockeye_scripts fast_align
       post_cmd+=" | python3 \$rundir/sockeye_scripts/masking/mask_terms.py --json --unmask"
       post_cmd+=" | \$rundir/sockeye_scripts/preparation/prepare.py --input-field text --undo --subword-type $subword_method"
     fi
+  else
+    # just remove the subword processing
+    post_cmd+=" | \$rundir/sockeye_scripts/preparation/prepare.py --input-field text --undo --subword-type $subword_method"
   fi
 
   if [[ $tokenize == "yes" ]]; then
