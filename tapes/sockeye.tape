@@ -338,7 +338,7 @@ bundledir=\$(dirname \$0)
     -q \\
     -m \$bundledir/model \\
     --json-input --output-type json \\
-    --output-attention \\
+    $output_attention_flag \\
     "\$@" \\
   | \$bundledir/post.sh
 EOF
