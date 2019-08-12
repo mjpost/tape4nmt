@@ -170,7 +170,7 @@ task sockeye_train : sockeye
 # Takes all the data and builds a packaged model directory.
 # Ideally this should be used for evaluation.
 task package_model : sockeye mosesdecoder sockeye_scripts fast_align
-  < subword_model=(SubwordMethod: sentencepiece=$model@train_sentencepiece bpe=$model@train_bpe none="/dev/null")
+  < subword_model=(SubwordMethod: sentencepiece=$model@train_sentencepiece bpe=$src_model@train_bpe none="/dev/null")
   < casing_model=(Casing: actual="/dev/null" lower_source="/dev/null" true=$out@train_truecaser)
   < model=$model@sockeye_train
   < observed_masks=(DoMasking: no="/dev/null" yes=$masks@mask[DataSection:train])
