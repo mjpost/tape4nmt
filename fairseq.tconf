@@ -88,13 +88,14 @@ global {
   resource_flags_16cpu="-l mem_free=16g,num_proc=16,h_rt=12:00:00"
 
   # SGE: flags for training a model
-  resource_flags_train="-q gpu.q@@2080 -l gpu=1,mem_free=4g,h_rt=12:00:00"
+  resource_flags_train="-q gpu.q@@2080 -l gpu=1,mem_free=4g,h_rt=168:00:00"
 
   # SGE: flags for decoding
   resource_flags_decode="-q gpu.q -l gpu=1,mem_free=4g,h_rt=4:00:00"
 
   # SGE: flags for notifying about job completion (put in your email address!)
-  action_flags="-m ae -M YOUR_EMAIL_HERE"
+  action_flags="-m ae -M post@cs.jhu.edu"
+  action_flags_success="-m ae -M post@cs.jhu.edu"
 
   # The default submitter: shell (run locally) or sge (run on a grid)
   submitter=(TestMode: no="sge" yes="shell")
@@ -103,14 +104,21 @@ global {
   # This variable supports both conda and Python's virtualenv. For conda, use "conda:ENV" as the value,
   # where "ENV" is the name of the conda environment that should be loaded. For virtualenv, supply
   # the path to the script that should be loaded.
-  pyenv="conda:sockeye"
+  pyenv="conda:fairseq"
 
   ##################################################################################################
   # Preprocessing options
   ##################################################################################################
 
+  # protected patterns for tokenizer ("" for default)
+  tokenize_protect=""
+  tokenizer=cjk
+
   # sentencepiece options
-  sentencepiece_vocab_size=8000
+  subword_joint_model=yes
+  subword_coverage_src=0.995
+  subword_coverage_trg=0.995
+  sentencepiece_vocab_size=10k
   sentencepiece_model_type="unigram"
   sentencepiece_alpha=0.5
 

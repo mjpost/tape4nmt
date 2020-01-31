@@ -31,15 +31,22 @@ task tokenize : mosesdecoder tools sockeye_scripts
       get=$trg_in
       put=$trg
     fi
-    if [[ $tokenizer == "default" && ( $lang == "zh" || $lang == "ja" || $lang == "ko" ) ]]; then
+    if [[ $tokenizer == "cjk" ]]; then
+        cat $get | ${sockeye_scripts}/cjk/segment-cjk.py \
+          | ${mosesdecoder}/scripts/tokenizer/remove-non-printing-char.perl \
+          > $put &
+
+    elif [[ $tokenizer == "default" && ( $lang == "zh" || $lang == "ja" || $lang == "ko" ) ]]; then
         cat $get | ${sockeye_scripts}/cjk/segment-cjk.py \
           | ${mosesdecoder}/scripts/tokenizer/normalize-punctuation.perl -l $lang \
           | ${mosesdecoder}/scripts/tokenizer/remove-non-printing-char.perl \
           | ${mosesdecoder}/scripts/tokenizer/tokenizer.perl -l $lang -no-escape -protected ${tokenize_protect} -q \
           > $put &
+
     elif [[ $tokenizer == "kytea" && $lang == "ja" ]]; then
       kytea=~/code/kytea
       cat $get | ${kytea}/src/bin/kytea -model ${kytea}/data/model.bin -out tok > $put &
+
     else
       cat $get \
         | ${mosesdecoder}/scripts/tokenizer/normalize-punctuation.perl -l $lang \

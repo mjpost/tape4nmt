@@ -16,13 +16,13 @@ task train_bpe : subword_nmt
   < trg_in=$recased_data_trg[DataSection:train]
   > src_model="bpe.model.src"
   > trg_model="bpe.model.trg"
-  :: subword_joint=@
+  :: subword_joint_model=@
   :: bpe_operations=@
   :: SRC=@
   :: TRG=@
   :: .submitter=$submitter .action_flags=$action_flags .resource_flags=$resource_flags_16g {
 
-  if [[ $subword_joint == 'yes' ]]; then
+  if [[ $subword_joint_model == 'yes' ]]; then
     subword-nmt learn-joint-bpe-and-vocab -i $src_in $trg_in -s $bpe_operations -o $src_model --write-vocabulary bpe.vocab.$SRC bpe.vocab.$TRG -v 2> log
     ln -sf $src_model $trg_model
   else
@@ -62,10 +62,15 @@ task train_sentencepiece : sentencepiece
   < src_in=$recased_data_src[DataSection:train]
   < trg_in=$recased_data_trg[DataSection:train]
   < observed_masks=(DoMasking: no="/dev/null" yes=$masks@mask[DataSection:train])
-  > model="sp.model"
-  > vocab="sp.vocab"
+  > src_model="sp.src.model"
+  > trg_model="sp.trg.model"
+  > src_vocab="sp.src.vocab"
+  > trg_vocab="sp.trg.vocab"
+  :: subword_joint_model=@
   :: sentencepiece_vocab_size=@
   :: sentencepiece_model_type=@
+  :: subword_coverage_src=@
+  :: subword_coverage_trg=@
   :: .submitter=$submitter
   :: .resource_flags=$resource_flags_16cpu
   :: .action_flags=@ {
@@ -75,18 +80,43 @@ task train_sentencepiece : sentencepiece
     glossary_flag="--user_defined_symbols $(cat $observed_masks)"
   fi  
 
-  ${sentencepiece}/build/src/spm_train --input $src_in,$trg_in --model_prefix sp --vocab_size $sentencepiece_vocab_size $glossary_flag --character_coverage 1.0 --model_type $sentencepiece_model_type
+  if [[ $subword_joint_model == "yes" ]]; then
+    ${sentencepiece}/build/src/spm_train --input $src_in \
+      --model_prefix sp.src \
+      --vocab_size $sentencepiece_vocab_size \
+      --character_coverage $subword_coverage_src \
+      --input_sentence_size 10000000 \
+      --shuffle_input_sentence=true \
+      --model_type $sentencepiece_model_type &
+    ${sentencepiece}/build/src/spm_train --input $trg_in \
+      --model_prefix sp.trg \
+      --vocab_size $sentencepiece_vocab_size $glossary_flag \
+      --character_coverage $subword_coverage_trg \
+      --input_sentence_size 10000000 \
+      --shuffle_input_sentence=true \
+      --model_type $sentencepiece_model_type
+
+    wait
+
+  else
+    ${sentencepiece}/build/src/spm_train --input $src_in,$trg_in --model_prefix sp --vocab_size $sentencepiece_vocab_size $glossary_flag --character_coverage $subword_coverage_src --model_type $sentencepiece_model_type
+    ln -sf sp.model $src_model
+    ln -sf sp.model $trg_model
+    ln -sf sp.vocab $src_vocab
+    ln -sf sp.vocab $trg_vocab
+  fi
 }
 
 task apply_sentencepiece : sentencepiece
   < src_in=$recased_data_src
   < trg_in=$recased_data_trg
-  < model=$model@train_sentencepiece
+  < src_model=$trg_model@train_sentencepiece
+  < trg_model=$trg_model@train_sentencepiece
   > src
   > trg
   :: sentencepiece_alpha=@ {
 
-  cat $src_in | ${sentencepiece}/build/src/spm_encode --model $model --output_format sample_piece --alpha $sentencepiece_alpha > $src &
-  cat $trg_in | ${sentencepiece}/build/src/spm_encode --model $model --output_format sample_piece --alpha $sentencepiece_alpha > $trg &
+  cat $src_in | ${sentencepiece}/build/src/spm_encode --model $src_model --output_format sample_piece --alpha $sentencepiece_alpha > $src &
+  cat $trg_in | ${sentencepiece}/build/src/spm_encode --model $trg_model --output_format sample_piece --alpha $sentencepiece_alpha > $trg &
   wait
 }
