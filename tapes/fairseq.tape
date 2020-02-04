@@ -46,6 +46,7 @@ task binarize_data : fairseq
     > out
     :: SRC=@
     :: TRG=@
+    :: train_shared_vocab=@
     :: .submitter=$submitter
     :: .resource_flags=$resource_flags_16g
     :: .pyenv=@
@@ -56,8 +57,17 @@ task binarize_data : fairseq
   ln -s $dev_src_in dev.$SRC
   ln -s $dev_trg_in dev.$TRG
 
-  python $fairseq/preprocess.py --source-lang $SRC --target-lang $TRG \
-    --trainpref train --validpref dev \
+  join=""
+  if [[ $train_shared_vocab == "yes" ]]; then
+    join=" --joined-dictionary"
+  fi
+
+  fairseq-preprocess \
+    --source-lang $SRC --target-lang $TRG \
+    --trainpref train \
+    --validpref dev \
+    --workers 30 \
+    $join \
     --destdir $out
 
   if [[ -f ${out}.train.1.pt ]] ; then
@@ -68,15 +78,20 @@ task binarize_data : fairseq
 task fairseq_train : fairseq
     < in=$out@binarize_data
     > out
+    :: SRC=@
+    :: TRG=@
     :: train_arch=@
-    :: train_batch_size=@
+    :: train_max_tokens=@
     :: train_optim=@
     :: train_dropout=@
-    :: train_adam_beta1=@
-    :: train_adam_beta2=@
+    :: train_adam_betas=@
+    :: train_num_encoder_layers=@
+    :: train_num_decoder_layers=@
+    :: train_model_size=@
+    :: train_ff_size=@
+    :: train_num_heads=@
     :: train_lr=@
     :: train_lr_min=@
-    :: train_lr_shrink=@
     :: train_lr_scheduler=@
     :: train_weight_decay=@
     :: train_warmup_init_lr=@
@@ -84,71 +99,61 @@ task fairseq_train : fairseq
     :: train_criterion=@
     :: train_label_smoothing=@
     :: train_clip_norm=@
-    :: train_max_tokens=@
-    :: train_share_input_output_embed=@
+    :: train_shared_embeddings=@
     :: train_skip_invalid_size_inputs_valid_test=@
+    :: train_update_freq=@
+    :: train_patience=@
     :: .submitter=sge
     :: .resource_flags=$resource_flags_train
     :: .pyenv=@
     :: .action_flags=@ {
 
-  cmd="python $fairseq/train.py $in --save-dir $out --keep-last-epochs 5"
-  cmd=$cmd" --lr $train_lr --clip-norm $train_clip_norm --dropout $train_dropout --max-tokens $train_max_tokens --arch $train_arch"
-
-  if [ ! -z $train_optim ] ; then
-    cmd=$cmd" --optimizer $train_optim"
-  fi
-
-  if [ ! -z $train_lr_min ] ; then
-    cmd=$cmd" --min-lr $train_lr_min"
-  fi
-
-  if [ ! -z $train_lr_shrink ] ; then
-    cmd=$cmd" --lr-shrink $train_lr_shrink"
-  fi
-
-  if [[ ! -z $train_lr_scheduler ]] ; then
-    cmd=$cmd" --lr-scheduler $train_lr_scheduler"
-  fi
-
-  if [[ ! -z $train_warmup_init_lr ]] ; then
-    cmd=$cmd" --warmup-init-lr $train_warmup_init_lr"
-  fi
-
-  if [ ! -z $train_warmup_updates ] ; then
-    cmd=$cmd" --warmup-updates $train_warmup_updates"
-  fi
-
-  if [ ! -z $train_criterion ] ; then
-    cmd=$cmd" --criterion $train_criterion"
-  fi
-
-  if [ ! -z $train_label_smoothing ] ; then
-    cmd=$cmd" --label-smoothing $train_label_smoothing"
-  fi
-
-  if [ ! -z $train_max_tokens ] ; then
-    cmd=$cmd" --max-tokens $train_max_tokens"
-  fi
-
-  if [[ ! -z $train_adam_beta1 ]] && [[ ! -z $train_adam_beta2 ]] ; then
-    cmd+=" --adam-betas '($train_adam_beta1, $train_adam_beta2)'"
-  fi
-
-  if [[ ! -z $train_share_input_output_embed ]] ; then
-    cmd+=" $train_share_input_output_embed"
-  fi
-
-  if [[ ! -z $train_weight_decay ]] ; then
-    cmd+=" --weight-decay $train_weight_decay"
-  fi
-
-  if [[ ! -z $train_skip_invalid_size_inputs_valid_test ]] ; then
-    cmd=$cmd" --skip-invalid-size-inputs-valid-test"
-  fi
-
-  echo $cmd
-  eval $cmd
+  fairseq-train \
+    $in \
+    --patience $train_patience \
+    --save-dir $out \
+    --arch $train_arch \
+    --max-tokens $train_max_tokens \
+    --update-freq $train_update_freq \
+    --save-interval-updates 100 \
+    --keep-interval-updates 400 \
+    --max-epoch 100 \
+    --num-workers 5 \
+    --fp16 \
+    --memory-efficient-fp16 \
+    --num-workers 0 \
+    --source-lang $SRC \
+    --target-lang $TRG \
+    --seed 2 \
+    --arch transformer \
+    --encoder-layers $train_num_encoder_layers \
+    --decoder-layers $train_num_decoder_layers \
+    --encoder-embed-dim $train_model_size \
+    --decoder-embed-dim $train_model_size \
+    --encoder-ffn-embed-dim $train_ff_size \
+    --decoder-ffn-embed-dim $train_ff_size  \
+    --encoder-attention-heads $train_num_heads \
+    --decoder-attention-heads $train_num_heads \
+    $train_shared_embeddings \
+    --dropout $train_dropout \
+    --attention-dropout $train_dropout \
+    --relu-dropout $train_dropout \
+    --weight-decay $train_weight_decay \
+    --criterion $train_criterion \
+    --label-smoothing $train_label_smoothing \
+    --optimizer $train_optim \
+    --adam-betas "$train_adam_betas" \
+    --clip-norm $train_clip_norm \
+    --lr $train_lr \
+    --min-lr $train_lr_min \
+    --lr-scheduler $train_lr_scheduler \
+    --warmup-init-lr $train_warmup_init_lr \
+    --warmup-updates $train_warmup_updates \
+    --clip-norm $train_clip_norm \
+    --ddp-backend=no_c10d \
+    --no-last-checkpoints \
+    --no-epoch-checkpoints \
+    --log-format json --log-interval 1  > log
 }
 
 

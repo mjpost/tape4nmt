@@ -1,7 +1,10 @@
-#import "confs/wmt18-de-en.tconf"
-# import "confs/wmt18-en-de.tconf"
-# import "confs/wmt18-ru-en.tconf"
-# import "confs/wmt18-en-ru.tconf"
+global {
+  SRC=zh
+  TRG=en
+  train_prefix="/exp/mpost/whale20/data/zh-en/generaldomain.train.raw"
+  dev_prefix="/exp/mpost/whale20/data/zh-en/generaldomain.dev.raw"
+  test_prefix="/exp/mpost/whale20/data/zh-en/generaldomain.test.raw"
+}
 
 global {
   ##################################################################################################
@@ -15,18 +18,28 @@ global {
   # Training options
   ##################################################################################################
 
+  # early stopping
+  train_patience=10
+
   # all default is consistent with nematus
   train_train_from="" # if there is a previous model to start with
   train_train_from_state_dict="" # if there is a previous dict to start with
   train_start_epoch="" # if trained for certain amount of epochs previously
 
-  train_batch_size="80"
+  train_num_encoder_layers=6
+  train_num_decoder_layers=6
+  train_model_size=512
+  train_ff_size=2048
+  train_num_heads=8
+
+#  train_batch_size="80"
+  train_max_tokens="4000"
+  train_update_freq=100
   train_optim="adam"
   train_dropout=(Dropout: 0.1 0.3 0.5)
   # Increase for bigger batches (e.g., to 0.001 with --update-freq 16)
   train_lr="0.0005"
   train_lr_min="1e-09"
-  train_lr_shrink="0.5"
   train_lr_scheduler="inverse_sqrt"
   train_weight_decay="0.0"
   train_warmup_init_lr="1e-07"
@@ -34,36 +47,15 @@ global {
   train_criterion="label_smoothed_cross_entropy"
   train_label_smoothing="0.1"
   train_clip_norm=(ClipNorm: 0.0 0.1 0.5 1 5)
-  train_max_tokens="4000"
   train_arch=(Architecture: transformer="transformer" conf="fconv" fconv_iwslt_de_en="fconv_iwslt_de_en" transformer_iwslt_de_en="transformer_iwslt_de_en")
-    # args.encoder_embed_path = getattr(args, 'encoder_embed_path', None)
-    # args.encoder_embed_dim = getattr(args, 'encoder_embed_dim', 512)
-    # args.encoder_ffn_embed_dim = getattr(args, 'encoder_ffn_embed_dim', 2048)
-    # args.encoder_layers = getattr(args, 'encoder_layers', 6)
-    # args.encoder_attention_heads = getattr(args, 'encoder_attention_heads', 8)
-    # args.encoder_normalize_before = getattr(args, 'encoder_normalize_before', False)
-    # args.encoder_learned_pos = getattr(args, 'encoder_learned_pos', False)
-    # args.decoder_embed_path = getattr(args, 'decoder_embed_path', None)
-    # args.decoder_embed_dim = getattr(args, 'decoder_embed_dim', args.encoder_embed_dim)
-    # args.decoder_ffn_embed_dim = getattr(args, 'decoder_ffn_embed_dim', args.encoder_ffn_embed_dim)
-    # args.decoder_layers = getattr(args, 'decoder_layers', 6)
-    # args.decoder_attention_heads = getattr(args, 'decoder_attention_heads', 8)
-    # args.decoder_normalize_before = getattr(args, 'decoder_normalize_before', False)
-    # args.decoder_learned_pos = getattr(args, 'decoder_learned_pos', False)
-    # args.attention_dropout = getattr(args, 'attention_dropout', 0.)
-    # args.relu_dropout = getattr(args, 'relu_dropout', 0.)
-    # args.dropout = getattr(args, 'dropout', 0.1)
-    # args.adaptive_softmax_cutoff = getattr(args, 'adaptive_softmax_cutoff', None)
-    # args.adaptive_softmax_dropout = getattr(args, 'adaptive_softmax_dropout', 0)
-    # args.share_decoder_input_output_embed = getattr(args, 'share_decoder_input_output_embed', False)
-    # args.share_all_embeddings = getattr(args, 'share_all_embeddings', False)
-    # args.no_token_positional_embeddings = getattr(args, 'no_token_positional_embeddings', False)
 
+  train_shared_vocab="false"
 
-  train_share_input_output_embed="--share-all-embeddings"
-  train_skip_invalid_size_inputs_valid_test="yes"
-  train_adam_beta1="0.9"
-  train_adam_beta2="0.98"
+  # --share-decoder-input-output-embed or --share-all-embeddings
+  train_shared_embeddings=" --share-decoder-input-output-embed"
+  train_skip_invalid_size_inputs_valid_test=" --skip-invalid-size-inputs-valid-test"
+
+  train_adam_betas="(0.9, 0.98)"
 
   # TEST CONFIGURATIONS
   test_model_selection_strategy="acc"
@@ -88,7 +80,7 @@ global {
   resource_flags_16cpu="-l mem_free=16g,num_proc=16,h_rt=12:00:00"
 
   # SGE: flags for training a model
-  resource_flags_train="-q gpu.q@@2080 -l gpu=1,mem_free=4g,h_rt=168:00:00"
+  resource_flags_train="-q gpu.q@@2080 -l gpu=4,mem_free=4g,h_rt=168:00:00"
 
   # SGE: flags for decoding
   resource_flags_decode="-q gpu.q -l gpu=1,mem_free=4g,h_rt=4:00:00"
@@ -115,10 +107,10 @@ global {
   tokenizer=cjk
 
   # sentencepiece options
-  subword_joint_model=yes
-  subword_coverage_src=0.995
+  subword_joint_model=no
+  subword_coverage_src=1.0
   subword_coverage_trg=0.995
-  sentencepiece_vocab_size=10k
+  sentencepiece_vocab_size=10000
   sentencepiece_model_type="unigram"
   sentencepiece_alpha=0.5
 
@@ -138,15 +130,7 @@ global {
   use_cpu=(TestMode: no yes)
 }
 
-plan test {
-  reach sacrebleu via 
-    (DoTokenize: yes) * (SubwordMethod: *) * (TestMode: yes)
-}
-
 plan transformer {
   reach sacrebleu via
-    (SubwordMethod: bpe) * (DoTokenize: yes) * (Casing: actual)
-
-  reach sacrebleu via
-    (SubwordMethod: sentencepiece) * (DoTokenize: no)
+    (SubwordMethod: sentencepiece) * (DoTokenize: yes) * (Casing: actual)
 }
