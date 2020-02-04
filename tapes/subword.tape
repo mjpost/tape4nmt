@@ -81,6 +81,13 @@ task train_sentencepiece : sentencepiece
   fi  
 
   if [[ $subword_joint_model == "yes" ]]; then
+    ${sentencepiece}/build/src/spm_train --input $src_in,$trg_in --model_prefix sp --vocab_size $sentencepiece_vocab_size $glossary_flag --character_coverage $subword_coverage_src --model_type $sentencepiece_model_type
+    ln -sf sp.model $src_model
+    ln -sf sp.model $trg_model
+    ln -sf sp.vocab $src_vocab
+    ln -sf sp.vocab $trg_vocab
+
+  else
     ${sentencepiece}/build/src/spm_train --input $src_in \
       --model_prefix sp.src \
       --vocab_size $sentencepiece_vocab_size \
@@ -95,15 +102,7 @@ task train_sentencepiece : sentencepiece
       --input_sentence_size 10000000 \
       --shuffle_input_sentence=true \
       --model_type $sentencepiece_model_type
-
     wait
-
-  else
-    ${sentencepiece}/build/src/spm_train --input $src_in,$trg_in --model_prefix sp --vocab_size $sentencepiece_vocab_size $glossary_flag --character_coverage $subword_coverage_src --model_type $sentencepiece_model_type
-    ln -sf sp.model $src_model
-    ln -sf sp.model $trg_model
-    ln -sf sp.vocab $src_vocab
-    ln -sf sp.vocab $trg_vocab
   fi
 }
 
