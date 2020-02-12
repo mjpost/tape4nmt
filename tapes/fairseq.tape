@@ -146,42 +146,77 @@ task fairseq_train : fairseq
     --lr-scheduler $train_lr_scheduler \
     --warmup-init-lr $train_warmup_init_lr \
     --warmup-updates $train_warmup_updates \
-    --clip-norm $train_clip_norm \
     --ddp-backend=no_c10d \
     --no-last-checkpoints \
     --no-epoch-checkpoints \
     --log-format json --log-interval 1  > log
 }
 
-
-task package_model : fairseq bin sockeye_scripts
-  < subword_model=(SubwordMethod: sentencepiece=$model@train_sentencepiece bpe=$src_model@train_bpe none="/dev/null")
+task package_model : fairseq bin mosesdecoder
+  < subword_model=(SubwordMethod: sentencepiece=$src_model@train_sentencepiece bpe=$src_model@train_bpe none="/dev/null")
   < data=$data@binarize_data
   < model=$model@fairseq_train
+  < subword_model_src=(SubwordMethod:
+      sentencepiece=$src_model@train_sentencepiece
+      bpe=$src_model@train_bpe
+      none="/dev/null"
+    )
+  < subword_model_trg=(SubwordMethod:
+      sentencepiece=$trg_model@train_sentencepiece
+      bpe=$trg_model@train_bpe
+      none="/dev/null"
+    )
+  < subword_vocab_src=(SubwordMethod:
+      sentencepiece=$src_vocab@train_sentencepiece
+      bpe="/dev/null"
+      none="/dev/null"
+    )
+  < subword_vocab_trg=(SubwordMethod:
+      sentencepiece=$trg_vocab@train_sentencepiece
+      bpe="/dev/null"
+      none="/dev/null"
+    )
   > package="package"
   :: SRC=@
   :: TRG=@
-  :: .submitter=$submitter
-  :: .action_flags=@
-  :: .resource_flags=$resource_flags_decode
+  :: casing=(Casing: actual lower lower_source true)
+  :: subword_method=(SubwordMethod: sentencepiece bpe none)
+  :: sentencepiece_alpha=@
   :: .pyenv=@ {
 
   mkdir $package
   cd $package
 
   ln $model/checkpoint_best.pt checkpoint_best.pt
-  ln $subword_model subword.model
+  ln $data/dict.$SRC.txt dict.$SRC.txt
+  ln $data/dict.$TRG.txt dict.$TRG.txt
 
-  ln -s $data/dict.$SRC.txt dict.src.txt
-  ln -s $data/dict.$TRG.txt dict.trg.txt
+  ln $subword_model_src subword.src.model
+  ln $subword_model_trg subword.trg.model
 
-  cat > preprocess.sh << EOF
+  ln $subword_vocab_src subword.src.vocab
+  ln $subword_vocab_trg subword.trg.vocab
+
+  cat > preprocess.sh <<EOF
 #!/usr/bin/env bash
-set -eux
-spm_encode --model $(dirname \$0)/subword.model
+
+set -eu
+
 EOF
 
-  cat > translate.sh << EOF
+  preprocess_cmd="cat"
+  if [[ $casing == "lower" || $casing == "lower_source" ]]; then
+      cp ${mosesdecoder}/scripts/tokenizer/lowercase.perl .
+      preprocess_cmd+=" | \$(dirname \$0)/lowercase.perl"
+  fi
+
+  if [[ $subword_method == "sentencepiece" ]]; then
+      preprocess_cmd+=" | spm_encode --model \$(dirname \$0)/subword.src.model --alpha $sentencepiece_alpha"
+  fi
+
+  echo $preprocess_cmd >> preprocess.sh
+
+  cat > translate.sh <<EOF
 #!/bin/bash
 #
 # Usage: 
@@ -194,19 +229,14 @@ EOF
 # - source.txt is the source file
 # - args is optional arguments passed to fairseq-generate
 
-#\$ -S /bin/bash -cwd -j y -o logs/
-#\$ -l gpu=1,num_proc=1,h_rt=0:59:00 -q gpu_short.q
-
 set -eu
 
-module load cuda10.1/toolkit cudnn
-
-# path to directory containing 'dict.src.txt' and 'checkpoint_best.pt'
-model=\$(abspath \$0)
+# path to directory containing dictionaries and model checkpoint
+model=\$(dirname \$0)
 
 # path to source file
 source=\$1
-
+  
 # path to write to
 output=\$2
 
@@ -214,7 +244,7 @@ shift
 shift
 
 if [[ -s \$output ]]; then
-    echo "$output already exists (\$(cat \$output | wc -l) lines), quitting."
+    echo "\$output already exists (\$(cat \$output | wc -l) lines), quitting."
     exit
 fi
 
@@ -238,22 +268,20 @@ fi
 # dummy file
 cp \$tmpdir/test.src \$tmpdir/test.trg
 
-fairseq-preprocess --source-lang src --target-lang trg --testpref \$tmpdir/test --destdir \$tmpdir --tgtdict \$model/dict.trg.txt --srcdict \$model/dict.src.txt > \$tmpdir/preprocess.log
+fairseq-preprocess --source-lang src --target-lang trg --testpref \$tmpdir/test --destdir \$tmpdir --tgtdict \$model/dict.$TRG.txt --srcdict \$model/dict.$SRC.txt > \$tmpdir/preprocess.log
 
 fairseq-generate \$tmpdir --path \$model/checkpoint_best.pt --gen-subset test --max-sentences 20 "\$@" > \$tmpdir/out
 mv \$tmpdir/out \$output
 
 rm -rf \$tmpdir
 EOF
-
-  chmod 755 preprocess.sh translate.sh
 }
 
 # the target input here is used to compute naive acc and ppl,
 # that's why we need post-bpe target input
 task decode : fairseq bin
     < in=$prepared_data_src[DataSection:test]
-    < binarized_data_dir=$out@binarize_data
+    < binarized_data_dir=$data@binarize_data
     < model=$model@fairseq_train
     > out
     :: test_max_sent_length=@
@@ -271,4 +299,26 @@ task decode : fairseq bin
   echo $cmd
   $cmd < $in > decode.log
   cat decode.log | grep ^H | cut -f3 | ${bin}/debpe > $out
+}
+
+task decode_with_bundle : fairseq bin
+    < in=$prepared_data_src[DataSection:test]
+    < model=$package@package_model
+    > out
+    :: test_max_sent_length=@
+    :: test_beam_size=@
+    :: test_batch_size=@
+    :: SRC=@
+    :: TRG=@
+    :: .submitter=$submitter
+    :: .action_flags=@
+    :: .resource_flags=$resource_flags_decode
+    :: .pyenv=@ {
+
+  log=out.log
+
+  cat $in | ${model}/translate.sh \
+    > $out 2> $log
+
+  cat decode.log | grep ^H | sort -t- -k2 -n | cut -f3 | ${bin}/debpe > $out
 }
