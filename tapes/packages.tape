@@ -32,8 +32,7 @@ package tools :: .versioner=git .repo="https://github.com/shuoyangd/tape4nmt-too
 # common tools (unpaste, debpe)
 package bin :: .versioner=git .repo="https://github.com/mjpost/bin" .ref=HEAD { }
 
-# using a fork for now, as fairseq evolves pretty fast
-package fairseq :: .versioner=git .repo="https://github.com/shuoyangd/fairseq" .ref=HEAD {
+package fairseq :: .versioner=git .repo="https://github.com/mjpost/fairseq" .ref="stable" {
   python setup.py build develop
 }
 
