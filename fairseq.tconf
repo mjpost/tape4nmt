@@ -81,7 +81,7 @@ global {
   resource_flags_16cpu="-l mem_free=16g,num_proc=16,h_rt=12:00:00"
 
   # SGE: flags for training a model
-  resource_flags_train="-q gpu.q@@2080 -l gpu=4,mem_free=4g,h_rt=168:00:00"
+  resource_flags_train=(NumGPUs: 4="-q gpu.q@@2080 -l gpu=4,mem_free=4g,h_rt=168:00:00" 1="-q gpu.q@@2080 -l gpu=1,mem_free=4g,h_rt=168:00:00")
 
   # SGE: flags for decoding
   resource_flags_decode="-q gpu.q -l gpu=1,mem_free=4g,h_rt=4:00:00"
@@ -133,6 +133,9 @@ global {
 }
 
 plan transformer {
-  reach sacrebleu via
-    (SubwordMethod: sentencepiece) * (DoTokenize: yes) * (Casing: actual)
+  reach sacrebleu, package_model via
+    (SubwordMethod: sentencepiece) * (DoTokenize: no) * (Casing: lower) * (Lang: *)
+
+  reach sacrebleu, package_model via
+    (SubwordMethod: sentencepiece) * (DoTokenize: no) * (Casing: lower) * (Lang: ja) * (UpdateFreq: *) * (NumGPUs: 1)
 }
