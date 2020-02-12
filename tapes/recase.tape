@@ -1,11 +1,13 @@
 global {
   recased_data_src=(Casing:
     actual=$tokenized_data_src
+    lower=$src@recase
     lower_source=$src@recase
     true=$src@recase
   )
   recased_data_trg=(Casing:
     actual=$tokenized_data_trg
+    lower=$trg@recase
     lower_source=$tokenized_data_trg
     true=$trg@recase
   )
@@ -31,13 +33,16 @@ task train_truecaser : mosesdecoder
 task recase : mosesdecoder
   < src_in=$tokenized_data_src
   < trg_in=$tokenized_data_trg
-  < truecaser=(Casing: actual="/dev/null" lower_source="/dev/null" true=$out@train_truecaser)
+  < truecaser=(Casing: actual="/dev/null" lower="/dev/null" lower_source="/dev/null" true=$out@train_truecaser)
   > src
   > trg
-  :: method=(Casing: actual lower_source true)
+  :: method=(Casing: actual lower lower_source true)
   :: .submitter=$submitter .action_flags=$action_flags .resource_flags=$resource_flags {
 
-  if [[ $method == "lower_source" ]]; then
+  if [[ $method == "lower" ]]; then
+    cat $src_in | ${mosesdecoder}/scripts/tokenizer/lowercase.perl > $src
+    cat $trg_in | ${mosesdecoder}/scripts/tokenizer/lowercase.perl > $trg
+  elif [[ $method == "lower_source" ]]; then
     cat $src_in | ${mosesdecoder}/scripts/tokenizer/lowercase.perl > $src
     ln -sf $trg_in $trg
   elif [[ $method == "true" ]]; then
