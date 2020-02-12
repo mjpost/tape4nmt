@@ -34,7 +34,8 @@ global {
 
 #  train_batch_size="80"
   train_max_tokens="4000"
-  train_update_freq=100
+  train_update_freq=(UpdateFreq: 100 50 200)
+  train_max_epoch=(MaxEpoch: 100 500)
   train_optim="adam"
   train_dropout=(Dropout: 0.1 0.3 0.5)
   # Increase for bigger batches (e.g., to 0.001 with --update-freq 16)
@@ -104,13 +105,14 @@ global {
 
   # protected patterns for tokenizer ("" for default)
   tokenize_protect=""
-  tokenizer=cjk
+  tokenizer=default
 
   # sentencepiece options
   subword_joint_model=no
-  subword_coverage_src=1.0
+  sentencepiece_vocab_size="5000:5000"
+  subword_coverage_src=0.995
   subword_coverage_trg=0.995
-  sentencepiece_vocab_size=10000
+#  subword_coverage_trg=(Lang: hu=1.0 ko=1.0 ja=0.995 pt=1.0 vi=1.0)
   sentencepiece_model_type="unigram"
   sentencepiece_alpha=0.5
 

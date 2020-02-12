@@ -68,11 +68,7 @@ task binarize_data : fairseq
     --validpref dev \
     --workers 30 \
     $join \
-    --destdir $out
-
-  if [[ -f ${out}.train.1.pt ]] ; then
-    touch $out
-  fi
+    --destdir $data
 }
 
 task fairseq_train : fairseq
@@ -103,6 +99,7 @@ task fairseq_train : fairseq
     :: train_skip_invalid_size_inputs_valid_test=@
     :: train_update_freq=@
     :: train_patience=@
+    :: train_max_epoch=@
     :: .submitter=sge
     :: .resource_flags=$resource_flags_train
     :: .pyenv=@
@@ -117,7 +114,7 @@ task fairseq_train : fairseq
     --update-freq $train_update_freq \
     --save-interval-updates 100 \
     --keep-interval-updates 400 \
-    --max-epoch 100 \
+    --max-epoch $train_max_epoch \
     --num-workers 5 \
     --fp16 \
     --memory-efficient-fp16 \
