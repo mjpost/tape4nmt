@@ -43,7 +43,7 @@ task binarize_data : fairseq
     < train_trg_in=$prepared_data_trg[DataSection:train]
     < dev_src_in=$prepared_data_src[DataSection:dev]
     < dev_trg_in=$prepared_data_trg[DataSection:dev]
-    > out
+    > data
     :: SRC=@
     :: TRG=@
     :: train_shared_vocab=@
@@ -76,8 +76,8 @@ task binarize_data : fairseq
 }
 
 task fairseq_train : fairseq
-    < in=$out@binarize_data
-    > out
+    < in=$data@binarize_data
+    > model
     :: SRC=@
     :: TRG=@
     :: train_arch=@
@@ -111,7 +111,7 @@ task fairseq_train : fairseq
   fairseq-train \
     $in \
     --patience $train_patience \
-    --save-dir $out \
+    --save-dir $model \
     --arch $train_arch \
     --max-tokens $train_max_tokens \
     --update-freq $train_update_freq \
@@ -157,12 +157,107 @@ task fairseq_train : fairseq
 }
 
 
+task package_model : fairseq bin sockeye_scripts
+  < subword_model=(SubwordMethod: sentencepiece=$model@train_sentencepiece bpe=$src_model@train_bpe none="/dev/null")
+  < data=$data@binarize_data
+  < model=$model@fairseq_train
+  > package="package"
+  :: SRC=@
+  :: TRG=@
+  :: .submitter=$submitter
+  :: .action_flags=@
+  :: .resource_flags=$resource_flags_decode
+  :: .pyenv=@ {
+
+  mkdir $package
+  cd $package
+
+  ln $model/checkpoint_best.pt checkpoint_best.pt
+  ln $subword_model subword.model
+
+  ln -s $data/dict.$SRC.txt dict.src.txt
+  ln -s $data/dict.$TRG.txt dict.trg.txt
+
+  cat > preprocess.sh << EOF
+#!/usr/bin/env bash
+set -eux
+spm_encode --model $(dirname \$0)/subword.model
+EOF
+
+  cat > translate.sh << EOF
+#!/bin/bash
+#
+# Usage: 
+#
+#   translate.sh source.txt output.txt [args]
+#
+# Translates from file source.txt into language LANG, optionally 
+# where
+#
+# - source.txt is the source file
+# - args is optional arguments passed to fairseq-generate
+
+#\$ -S /bin/bash -cwd -j y -o logs/
+#\$ -l gpu=1,num_proc=1,h_rt=0:59:00 -q gpu_short.q
+
+set -eu
+
+module load cuda10.1/toolkit cudnn
+
+# path to directory containing 'dict.src.txt' and 'checkpoint_best.pt'
+model=\$(abspath \$0)
+
+# path to source file
+source=\$1
+
+# path to write to
+output=\$2
+
+shift
+shift
+
+if [[ -s \$output ]]; then
+    echo "$output already exists (\$(cat \$output | wc -l) lines), quitting."
+    exit
+fi
+
+[[ ! -d \$(dirname \$output) ]] && mkdir -p \$(dirname \$output)
+
+tmpdir=\$(mktemp -d --tmpdir=/expscratch/\$USER)
+echo "TMPDIR=\$tmpdir"
+echo "HOST=\$(hostname)"
+env | grep CUDA
+env | grep SGE
+
+if [[ \$source == sacrebleu://* ]]; then
+    # format: "sacrebleu://test-set/source-target
+    testset=\$(echo \$source | cut -d/ -f3)
+    langpair=\$(echo \$source | cut -d/ -f4)
+    sacrebleu -t \$testset -l \$langpair --echo src | \$model/preprocess.sh > \$tmpdir/test.src
+else
+    cat \$source | \$model/preprocess.sh > \$tmpdir/test.src
+fi
+
+# dummy file
+cp \$tmpdir/test.src \$tmpdir/test.trg
+
+fairseq-preprocess --source-lang src --target-lang trg --testpref \$tmpdir/test --destdir \$tmpdir --tgtdict \$model/dict.trg.txt --srcdict \$model/dict.src.txt > \$tmpdir/preprocess.log
+
+fairseq-generate \$tmpdir --path \$model/checkpoint_best.pt --gen-subset test --max-sentences 20 "\$@" > \$tmpdir/out
+mv \$tmpdir/out \$output
+
+rm -rf \$tmpdir
+EOF
+
+  chmod 755 preprocess.sh translate.sh
+}
+
 # the target input here is used to compute naive acc and ppl,
 # that's why we need post-bpe target input
 task decode : fairseq bin
     < in=$prepared_data_src[DataSection:test]
     < binarized_data_dir=$out@binarize_data
-    < model=$out@fairseq_train
+    < model=$model@fairseq_train
     > out
     :: test_max_sent_length=@
     :: test_beam_size=@
