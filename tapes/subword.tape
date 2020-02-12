@@ -88,16 +88,19 @@ task train_sentencepiece : sentencepiece
     ln -sf sp.vocab $trg_vocab
 
   else
+    vocab_size_src=$(echo $sentencepiece_vocab_size | cut -d: -f1)
+    vocab_size_trg=$(echo $sentencepiece_vocab_size | cut -d: -f2)
+
     ${sentencepiece}/build/src/spm_train --input $src_in \
       --model_prefix sp.src \
-      --vocab_size $sentencepiece_vocab_size \
+      --vocab_size $vocab_size_src \
       --character_coverage $subword_coverage_src \
       --input_sentence_size 10000000 \
       --shuffle_input_sentence=true \
       --model_type $sentencepiece_model_type &
     ${sentencepiece}/build/src/spm_train --input $trg_in \
       --model_prefix sp.trg \
-      --vocab_size $sentencepiece_vocab_size $glossary_flag \
+      --vocab_size $vocab_size_trg $glossary_flag \
       --character_coverage $subword_coverage_trg \
       --input_sentence_size 10000000 \
       --shuffle_input_sentence=true \
@@ -109,7 +112,7 @@ task train_sentencepiece : sentencepiece
 task apply_sentencepiece : sentencepiece
   < src_in=$recased_data_src
   < trg_in=$recased_data_trg
-  < src_model=$trg_model@train_sentencepiece
+  < src_model=$src_model@train_sentencepiece
   < trg_model=$trg_model@train_sentencepiece
   > src
   > trg
