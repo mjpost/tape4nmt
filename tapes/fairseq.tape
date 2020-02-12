@@ -275,6 +275,8 @@ mv \$tmpdir/out \$output
 
 rm -rf \$tmpdir
 EOF
+
+  chmod 755 preprocess.sh translate.sh
 }
 
 # the target input here is used to compute naive acc and ppl,
