@@ -96,7 +96,7 @@ task fairseq_train : fairseq
     :: train_label_smoothing=@
     :: train_clip_norm=@
     :: train_shared_embeddings=@
-    :: train_update_freq=@
+    :: train_update_interval=@
     :: train_patience=@
     :: train_max_epoch=@
     :: .submitter=sge
@@ -110,9 +110,9 @@ task fairseq_train : fairseq
     --save-dir $model \
     --arch $train_arch \
     --max-tokens $train_max_tokens \
-    --update-freq $train_update_freq \
-    --save-interval-updates 100 \
-    --keep-interval-updates 400 \
+    --update-freq $train_update_interval \
+    --save-interval-updates 1000 \
+    --keep-interval-updates 10 \
     --max-epoch $train_max_epoch \
     --num-workers 5 \
     --fp16 \
