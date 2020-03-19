@@ -50,7 +50,7 @@ task binarize_data : fairseq
     :: .submitter=$submitter
     :: .resource_flags=$resource_flags_16g
     :: .pyenv=@
-    :: .action_flags=@ {
+    :: .action_flags=$action_flags_success {
 
   ln -s $train_src_in train.$SRC
   ln -s $train_trg_in train.$TRG
@@ -102,7 +102,7 @@ task fairseq_train : fairseq
     :: .submitter=sge
     :: .resource_flags=$resource_flags_train
     :: .pyenv=@
-    :: .action_flags=@ {
+    :: .action_flags=$action_flags_success {
 
   fairseq-train \
     $in \
