@@ -96,7 +96,6 @@ task fairseq_train : fairseq
     :: train_label_smoothing=@
     :: train_clip_norm=@
     :: train_shared_embeddings=@
-    :: train_skip_invalid_size_inputs_valid_test=@
     :: train_update_freq=@
     :: train_patience=@
     :: train_max_epoch=@
@@ -146,6 +145,7 @@ task fairseq_train : fairseq
     --lr-scheduler $train_lr_scheduler \
     --warmup-init-lr $train_warmup_init_lr \
     --warmup-updates $train_warmup_updates \
+    --skip-invalid-size-inputs-valid-test \
     --ddp-backend=no_c10d \
     --no-last-checkpoints \
     --no-epoch-checkpoints \
