@@ -34,7 +34,7 @@ global {
 
 #  train_batch_size="80"
   train_max_tokens="4000"
-  train_update_freq=(UpdateFreq: 100 50 200)
+  train_update_interval=(UpdateFreq: 100 50 200 25 10 1)
   train_max_epoch=(MaxEpoch: 100 500)
   train_optim="adam"
   train_dropout=(Dropout: 0.1 0.3 0.5)
@@ -54,7 +54,6 @@ global {
 
   # --share-decoder-input-output-embed or --share-all-embeddings
   train_shared_embeddings=" --share-decoder-input-output-embed"
-  train_skip_invalid_size_inputs_valid_test=" --skip-invalid-size-inputs-valid-test"
 
   train_adam_betas="(0.9, 0.98)"
 
@@ -65,7 +64,7 @@ global {
   test_batch_size="32"
 
   # EVALUATION
-  sacrebleu_args=""
+  sacrebleu_args="-tok intl"
 
   ##################################################################################################
   # Job parameters
@@ -81,13 +80,13 @@ global {
   resource_flags_16cpu="-l mem_free=16g,num_proc=16,h_rt=12:00:00"
 
   # SGE: flags for training a model
-  resource_flags_train=(NumGPUs: 4="-q gpu.q@@2080 -l gpu=4,mem_free=4g,h_rt=168:00:00" 1="-q gpu.q@@2080 -l gpu=1,mem_free=4g,h_rt=168:00:00")
+  resource_flags_train=(NumGPUs: 4="-q gpu.q@@2080 -l gpu=4,mem_free=4g,h_rt=168:00:00" 2="-q gpu.q@@2080 -l gpu=2,mem_free=4g,h_rt=168:00:00" 1="-q gpu.q@@2080 -l gpu=1,mem_free=4g,h_rt=168:00:00")
 
   # SGE: flags for decoding
   resource_flags_decode="-q gpu.q -l gpu=1,mem_free=4g,h_rt=4:00:00"
 
   # SGE: flags for notifying about job completion (put in your email address!)
-  action_flags="-m ae -M post@cs.jhu.edu"
+  action_flags="-m a -M post@cs.jhu.edu"
   action_flags_success="-m ae -M post@cs.jhu.edu"
 
   # The default submitter: shell (run locally) or sge (run on a grid)

@@ -319,7 +319,7 @@ task decode_with_bundle : fairseq bin
 
   log=out.log
 
-  cat $in | ${model}/translate.sh \
+  cat $in | ${model}/translate.sh --beam $test_beam_size \
     > $out 2> $log
 
   cat decode.log | grep ^H | sort -t- -k2 -n | cut -f3 | ${bin}/debpe > $out
