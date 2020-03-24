@@ -191,17 +191,21 @@ task package_model : fairseq bin mosesdecoder
   ln $data/dict.$SRC.txt dict.$SRC.txt
   ln $data/dict.$TRG.txt dict.$TRG.txt
 
-  ln $subword_model_src subword.src.model
-  ln $subword_model_trg subword.trg.model
+  ln $subword_model_src subword.$SRC.model
+  ln -s subword.$SRC.model subword.src.model
+  ln $subword_model_trg subword.$TRG.model
+  ln -s subword.src.model subword.trg.model
 
-  ln $subword_vocab_src subword.src.vocab
-  ln $subword_vocab_trg subword.trg.vocab
+  ln $subword_vocab_src subword.$SRC.vocab
+  ln $subword_vocab_trg subword.$TRG.vocab
 
   cat > preprocess.sh <<EOF
 #!/usr/bin/env bash
 
 set -eu
 
+# chooses the subword model (defaults to source language)
+lang=\${1:-$SRC}
 EOF
 
   preprocess_cmd="cat"
@@ -211,7 +215,7 @@ EOF
   fi
 
   if [[ $subword_method == "sentencepiece" ]]; then
-      preprocess_cmd+=" | spm_encode --model \$(dirname \$0)/subword.src.model --alpha $sentencepiece_alpha"
+      preprocess_cmd+=" | spm_encode --model \$(dirname \$0)/subword.\$lang.model --alpha $sentencepiece_alpha"
   fi
 
   echo $preprocess_cmd >> preprocess.sh
@@ -252,9 +256,6 @@ fi
 
 tmpdir=\$(mktemp -d --tmpdir=/expscratch/\$USER)
 echo "TMPDIR=\$tmpdir"
-echo "HOST=\$(hostname)"
-env | grep CUDA
-env | grep SGE
 
 if [[ \$source == sacrebleu://* ]]; then
     # format: "sacrebleu://test-set/source-target
@@ -268,7 +269,7 @@ fi
 # dummy file
 cp \$tmpdir/test.src \$tmpdir/test.trg
 
-fairseq-preprocess --source-lang src --target-lang trg --testpref \$tmpdir/test --destdir \$tmpdir --tgtdict \$model/dict.$TRG.txt --srcdict \$model/dict.$SRC.txt > \$tmpdir/preprocess.log
+fairseq-preprocess --source-lang $SRC --target-lang $TRG --testpref \$tmpdir/test --destdir \$tmpdir --srcdict \$model/dict.$SRC.txt --tgtdict \$model/dict.$TRG.txt > \$tmpdir/preprocess.log
 
 fairseq-generate \$tmpdir --path \$model/checkpoint_best.pt --gen-subset test --max-sentences 20 "\$@" > \$tmpdir/out
 mv \$tmpdir/out \$output
@@ -276,7 +277,64 @@ mv \$tmpdir/out \$output
 rm -rf \$tmpdir
 EOF
 
-  chmod 755 preprocess.sh translate.sh
+  cat > score.sh <<EOF
+#!/bin/bash
+#
+# Scores a set of inputs against a provided set of outputs.
+#
+# Usage: 
+#
+#   score.sh source.txt target.txt output.txt [args]
+#
+# Translates from file source.txt into language LANG, optionally 
+# where
+#
+# - source.txt contains source sentences
+# - target.txt contains target (reference) sentences
+# - output.txt is where to write the output to
+# - args is optional arguments passed to fairseq-generate
+
+set -eu
+
+# path to source file
+source=\$1
+
+# path to target file
+target=\$2
+  
+# path to write to
+output=\$3
+
+shift
+shift
+shift
+
+if [[ -s \$output ]]; then
+    echo "\$output already exists (\$(cat \$output | wc -l) lines), quitting."
+    exit
+fi
+
+[[ ! -d \$(dirname \$output) ]] && mkdir -p \$(dirname \$output)
+
+# path to directory containing dictionaries and model checkpoint
+model=\$(dirname \$0)
+SRC=$SRC
+TRG=$TRG
+tmpdir=\$(mktemp -d --tmpdir=/expscratch/\$USER)
+echo "TMPDIR=\$tmpdir"
+
+cat \$source | \$model/preprocess.sh \$SRC > \$tmpdir/test.\$SRC
+cat \$target | \$model/preprocess.sh \$TRG > \$tmpdir/test.\$TRG
+
+fairseq-preprocess --source-lang \$SRC --target-lang \$TRG --testpref \$tmpdir/test --destdir \$tmpdir --srcdict \$model/dict.\$SRC.txt --tgtdict \$model/dict.\$TRG.txt > \$tmpdir/preprocess.log
+
+fairseq-generate \$tmpdir --path \$model/checkpoint_best.pt --gen-subset test "\$@" > \$tmpdir/out
+mv \$tmpdir/out \$output
+
+rm -rf \$tmpdir
+EOF
+
+  chmod 755 preprocess.sh translate.sh score.sh
 }
 
 # the target input here is used to compute naive acc and ppl,
