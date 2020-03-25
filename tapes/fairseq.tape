@@ -328,7 +328,7 @@ cat \$target | \$model/preprocess.sh \$TRG > \$tmpdir/test.\$TRG
 
 fairseq-preprocess --source-lang \$SRC --target-lang \$TRG --testpref \$tmpdir/test --destdir \$tmpdir --srcdict \$model/dict.\$SRC.txt --tgtdict \$model/dict.\$TRG.txt > \$tmpdir/preprocess.log
 
-fairseq-generate \$tmpdir --path \$model/checkpoint_best.pt --gen-subset test "\$@" > \$tmpdir/out
+fairseq-generate \$tmpdir --path \$model/checkpoint_best.pt --gen-subset test --prefix-tokens 1000 "\$@" > \$tmpdir/out
 mv \$tmpdir/out \$output
 
 rm -rf \$tmpdir
