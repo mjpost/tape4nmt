@@ -192,9 +192,7 @@ task package_model : fairseq bin mosesdecoder
   ln $data/dict.$TRG.txt dict.$TRG.txt
 
   ln $subword_model_src subword.$SRC.model
-  ln -s subword.$SRC.model subword.src.model
   ln $subword_model_trg subword.$TRG.model
-  ln -s subword.src.model subword.trg.model
 
   ln $subword_vocab_src subword.$SRC.vocab
   ln $subword_vocab_trg subword.$TRG.vocab
@@ -261,13 +259,13 @@ if [[ \$source == sacrebleu://* ]]; then
     # format: "sacrebleu://test-set/source-target
     testset=\$(echo \$source | cut -d/ -f3)
     langpair=\$(echo \$source | cut -d/ -f4)
-    sacrebleu -t \$testset -l \$langpair --echo src | \$model/preprocess.sh > \$tmpdir/test.src
+    sacrebleu -t \$testset -l \$langpair --echo src | \$model/preprocess.sh > \$tmpdir/test.$SRC
 else
-    cat \$source | \$model/preprocess.sh > \$tmpdir/test.src
+    cat \$source | \$model/preprocess.sh > \$tmpdir/test.$SRC
 fi
 
 # dummy file
-cp \$tmpdir/test.src \$tmpdir/test.trg
+cp \$tmpdir/test.src \$tmpdir/test.$TRG
 
 fairseq-preprocess --source-lang $SRC --target-lang $TRG --testpref \$tmpdir/test --destdir \$tmpdir --srcdict \$model/dict.$SRC.txt --tgtdict \$model/dict.$TRG.txt > \$tmpdir/preprocess.log
 
