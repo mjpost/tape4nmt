@@ -23,6 +23,8 @@ task download_or_link : tools mosesdecoder
   :: testing=(TestMode: no yes)
   :: train_clean_ratio=@
   :: train_maxlen=@
+  :: data_maxlines=@
+  :: seed=@
   :: pyenv=@ {
 
   rm -f $src $trg
@@ -47,7 +49,12 @@ task download_or_link : tools mosesdecoder
         head -n $numlines $prefix.$SRC >> $src    
         head -n $numlines $prefix.$TRG >> $trg
       else
-        ${tools}/bin/zpaste $prefix.{$SRC,$TRG} | ${tools}/bin/unpaste -a $src $trg
+        if [[ $data_maxlines -gt 0 ]]; then
+          # take only a random sample of $data_maxlines
+          ${tools}/bin/zpaste $prefix.{$SRC,$TRG} | rand-sample --seed $seed $data_maxlines | ${tools}/bin/unpaste -a $src $trg
+        else
+          ${tools}/bin/zpaste $prefix.{$SRC,$TRG} | ${tools}/bin/unpaste -a $src $trg
+        fi
       fi
     fi
   done

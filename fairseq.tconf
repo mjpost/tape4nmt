@@ -121,6 +121,8 @@ global {
   # options for cleaning training data
   train_maxlen=100
   train_clean_ratio=1
+  data_maxlines=-1
+  seed=44
 
   # MASKING
   masking_add_index=(MaskIndex: yes no)
