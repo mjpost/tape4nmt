@@ -17,7 +17,7 @@ task train_bpe : subword_nmt
   > src_model="bpe.model.src"
   > trg_model="bpe.model.trg"
   :: subword_joint_model=@
-  :: bpe_operations=@
+  :: bpe_operations=$subword_vocab_size
   :: SRC=@
   :: TRG=@
   :: .submitter=$submitter .action_flags=$action_flags .resource_flags=$resource_flags_16g {
@@ -67,7 +67,7 @@ task train_sentencepiece : sentencepiece
   > src_vocab="sp.src.vocab"
   > trg_vocab="sp.trg.vocab"
   :: subword_joint_model=@
-  :: sentencepiece_vocab_size=@
+  :: sentencepiece_vocab_size=$subword_vocab_size
   :: sentencepiece_model_type=@
   :: subword_coverage_src=@
   :: subword_coverage_trg=@

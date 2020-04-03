@@ -17,26 +17,21 @@ global {
   encoder_type="transformer"
   decoder_type="transformer"
 
-  num_embed="512:512"
-
-  num_layers=(TestMode: no=(NumLayers: 6_6="6:6" 10_2="10:2") yes="1:1")
-
-  transformer_model_size=512
-  transformer_attention_heads=8
-  transformer_feed_forward_num_hidden=2048
-
-  train_batch_type=(TestMode: no="word" yes="sentence")
-  train_batch_size=(TestMode: no="4096" yes=8)
-
-  # Sockeye
-  train_checkpoint_freq=(TestMode: no=5000 yes=100)
-  train_max_checkpoints_not_improved=(TestMode: no=10 yes=0)
-
-  # the number of sentences to use from the dev set
-  train_num_decode_and_eval=(TestMode: no=500 yes=10)
+  # MODEL SETTINGS
+  num_embed=(ModelSize: small="512:512" medium="768:768")
+  num_layers=(ModelSize: small="4:4" medium="6:6")
+  transformer_model_size=(ModelSize: small=512 medium=768)
+  transformer_attention_heads=(ModelSize: small=8 medium=12)
+  transformer_feed_forward_num_hidden=(ModelSize: small=1024 medium=2048)
+  train_batch_type="word"
+  train_batch_size=28000
+  train_checkpoint_freq=5000
+  train_max_checkpoints_not_improved=10
+  initial_learning_rate=(LearningRate: normal=0.0002 slower=0.00002)
+  train_num_decode_and_eval=500
 
   # TEST CONFIGURATIONS
-  test_beam_size=(TestMode: no="12" yes="1")
+  test_beam_size=12
   test_batch_size=32
   test_max_sent_length=100
 
@@ -56,15 +51,15 @@ global {
   masking_unmask=(MaskIndex: yes="none" no="attention")  # values "none", "attention", or "align"
 
   # EVALUATION
-  sacrebleu_args=""
+  sacrebleu_args="-lc"
 
   ##################################################################################################
   # Job submission parameters
   ##################################################################################################
 
   # SGE: flags for notifying about job completion (put in your email address!)
-  action_flags="-m a -M YOUR@EMAIL.HERE"
-  action_flags_success="-m ae -M YOUR@EMAIL.HERE"
+  action_flags="-m a -M post@cs.jhu.edu"
+  action_flags_success="-m ae -M post@cs.jhu.edu"
 
   # SGE: generic job flags
   resource_flags="-l mem_free=2g,h_rt=12:00:00"
@@ -76,20 +71,20 @@ global {
   resource_flags_16cpu="-l mem_free=16g,num_proc=16,h_rt=12:00:00"
 
   # SGE: flags for training a model
-  num_devices=1
-  resource_flags_train="-q gpu.q@@2080 -l gpu=1,mem_free=20g,h_rt=504:00:00"
+  num_devices=2
+  resource_flags_train="-q gpu.q@@rtx -l gpu=2,mem_free=20g,h_rt=504:00:00"
 
   # SGE: flags for decoding
   resource_flags_decode="-q gpu.q@@2080 -l gpu=1,mem_free=4g,h_rt=4:00:00"
 
   # The default submitter: shell (run locally) or sge (run on a grid)
-  submitter=(TestMode: no="sge" yes="shell")
+  submitter="sge"
 
   # Virtual env location. This should be a file path to the virtual env you want loaded before tasks.
   # This variable supports both conda and Python's virtualenv. For conda, use "conda:ENV" as the value,
   # where "ENV" is the name of the conda environment that should be loaded. For virtualenv, supply
   # the path to the script that should be loaded.
-  pyenv="conda:sockeye"
+  pyenv="conda:sockeye10"
 
   ##################################################################################################
   # Preprocessing options
@@ -97,36 +92,32 @@ global {
 
   # protected patterns for tokenizer ("" for default)
   tokenize_protect=""
-  tokenizer=(Tokenizer: default kytea)
+  tokenizer=(Tokenizer: none default cjk)
+
+  # generic subword options
+  subword_joint_model=(SubwordJoint: yes no)
+  subword_vocab_size=(SubwordSize: 5000 10000 5000_10000="5000:10000")
 
   # sentencepiece options
-  sentencepiece_vocab_size=8000
   sentencepiece_model_type="unigram"
+  subword_coverage_src=0.995
+  subword_coverage_trg=0.995
   sentencepiece_alpha=0.5
-
-  # no of BPE operations
-  subword_joint=(SubwordJoint: yes no)
-  bpe_operations=(SubwordSize: 1000 2000 4000 8000 16000 24000)
 
   # options for cleaning training data
   train_maxlen=100
   train_clean_ratio=1
+  data_maxlines=-1
+  seed=44
 
-  use_cpu=(TestMode: no yes)
-}
-
-plan test {
-  reach sacrebleu via 
-    (SubwordMethod: bpe) * (DoTokenize: yes) * (DoMasking: *) * (Casing: lower_source) * (SourceFactors: yes) * (TestMode: yes)
-
-  reach sacrebleu via 
-    (SubwordMethod: sentencepiece) * (DoTokenize: no) * (DoMasking: yes) * (Casing: actual) * (SourceFactors: no) * (TestMode: yes)
+  use_cpu=no
 }
 
 plan transformer {
   reach sacrebleu via
-    (SubwordMethod: bpe) * (DoTokenize: yes) * (Casing: actual) * (NumLayers: 6_6)
-
+    (SubwordMethod: sentencepiece) * (Tokenizer: none cjk) * (SubwordSize: *) * (SubwordJoint: no) * (Casing: actual) * (ModelSize: small)
   reach sacrebleu via
-    (SubwordMethod: bpe) * (DoTokenize: yes) * (Casing: lower_source) * (SourceFactors: no yes) * (NumLayers: 6_6)
+    (SubwordMethod: sentencepiece) * (Tokenizer: none) * (SubwordSize: 10000) * (SubwordJoint: no) * (LearningRate: *) * (Casing: actual) * (ModelSize: small)
+  reach sacrebleu via
+    (SubwordMethod: sentencepiece) * (Tokenizer: none) * (SubwordSize: 10000) * (SubwordJoint: no) * (ModelSize: medium) * (Casing: actual) * (ModelSize: small)
 }

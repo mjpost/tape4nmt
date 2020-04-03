@@ -1,11 +1,13 @@
 global {
-  tokenized_data_src=(DoTokenize:
-    yes=$src@tokenize
-    no=$masked_data_src
+  tokenized_data_src=(Tokenizer:
+    none=$masked_data_src
+    default=$src@tokenize
+    cjk=$src@tokenize
   )
-  tokenized_data_trg=(DoTokenize:
-    yes=$trg@tokenize
-    no=$masked_data_trg
+  tokenized_data_trg=(Tokenizer:
+    none=$masked_data_trg
+    default=$trg@tokenize
+    cjk=$trg@tokenize
   )
 }
 
@@ -32,7 +34,9 @@ task tokenize : mosesdecoder tools sockeye_scripts
       put=$trg
     fi
     if [[ $tokenizer == "cjk" ]]; then
-        cat $get | ${sockeye_scripts}/cjk/segment-cjk.py \
+        cat $get \
+          | ${mosesdecoder}/scripts/tokenizer/normalize-punctuation.perl -l $lang \
+          | ${sockeye_scripts}/cjk/segment-cjk.py \
           | ${mosesdecoder}/scripts/tokenizer/remove-non-printing-char.perl \
           > $put &
 

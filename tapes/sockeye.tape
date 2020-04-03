@@ -46,7 +46,7 @@ task prepare_data : sockeye
     > data
     :: train_maxlen=@
     :: source_factors=@
-    :: seed=1235813
+    :: seed=@
     :: .submitter=$submitter
     :: .resource_flags=$resource_flags_16g
     :: .pyenv=@
@@ -96,11 +96,13 @@ task sockeye_train : sockeye
     :: transformer_model_size=@
     :: transformer_attention_heads=@
     :: transformer_feed_forward_num_hidden=@
+    :: initial_learning_rate=@
     :: source_factors=@
     :: source_factors_num_embed=@
     :: source_factors_combine=@
     :: use_cpu=@
     :: num_devices=@
+    :: seed=@
     :: .submitter=$submitter
     :: .resource_flags=$resource_flags_train
     :: .pyenv=@
@@ -124,6 +126,7 @@ task sockeye_train : sockeye
   python3 -m sockeye.train \
     -o $model \
     $device \
+    --seed=$seed \
     --disable-device-locking \
     --prepared-data $prepared_data \
     --num-embed=$num_embed \
@@ -152,7 +155,7 @@ task sockeye_train : sockeye
     --optimized-metric=perplexity \
     --label-smoothing=0.1 \
     --gradient-clipping-threshold=-1 \
-    --initial-learning-rate=0.0002 \
+    --initial-learning-rate=$initial_learning_rate \
     --learning-rate-reduce-num-not-improved=8 \
     --learning-rate-reduce-factor=0.9 \
     --learning-rate-scheduler-type=plateau-reduce \
@@ -163,15 +166,16 @@ task sockeye_train : sockeye
     --batch-size=$train_batch_size \
     --checkpoint-frequency=$train_checkpoint_freq \
     --decode-and-evaluate=$train_num_decode_and_eval \
-    --decode-and-evaluate-device-id -1 \
+    --decode-and-evaluate-use-cpu \
     --keep-last-params=10
 }
 
 # Takes all the data and builds a packaged model directory.
 # Ideally this should be used for evaluation.
 task package_model : sockeye mosesdecoder sockeye_scripts fast_align
-  < subword_model=(SubwordMethod: sentencepiece=$model@train_sentencepiece bpe=$src_model@train_bpe none="/dev/null")
-  < casing_model=(Casing: actual="/dev/null" lower_source="/dev/null" true=$out@train_truecaser)
+  < subword_model_src=(SubwordMethod: sentencepiece=$src_model@train_sentencepiece bpe=$src_model@train_bpe none="/dev/null")
+  < subword_model_trg=(SubwordMethod: sentencepiece=$trg_model@train_sentencepiece bpe=$trg_model@train_bpe none="/dev/null")
+  < casing_model=(Casing: actual="/dev/null" lower="/dev/null" lower_source="/dev/null" true=$out@train_truecaser)
   < model=$model@sockeye_train
   < observed_masks=(DoMasking: no="/dev/null" yes=$masks@mask[DataSection:train])
   < forward_log=(MaskIndex: yes="/dev/null" no=$forward_log@fast_align)
@@ -179,8 +183,8 @@ task package_model : sockeye mosesdecoder sockeye_scripts fast_align
   < forward_lexicon=(MaskIndex: yes="/dev/null" no=$forward_lexicon@fast_align)
   < reverse_lexicon=(MaskIndex: yes="/dev/null" no=$reverse_lexicon@fast_align)
   > bundle="bundle"
-  :: casing=(Casing: actual true lower_source)
-  :: tokenize=(DoTokenize: yes="yes" no="no")
+  :: casing=(Casing: actual lower lower_source true)
+  :: tokenize=(Tokenizer: none default cjk)
   :: mask=(DoMasking: no="no" yes="yes")
   :: masking_pattern_files=@
   :: masking_dict_files=@
@@ -307,9 +311,9 @@ EOF
   fi
 
   prepare_subword_arg=""
-  if [[ $subword_model != "/dev/null" ]]; then
-    cp $subword_model subword.model
-    prepare_subword_arg="--subword-type $subword_method --subword-model \$rundir/subword.model"
+  if [[ $subword_model_src != "/dev/null" ]]; then
+    cp $subword_model_src subword.src.model
+    prepare_subword_arg="--subword-type $subword_method --subword-model \$rundir/subword.src.model"
 
     if [[ $mask == "yes" && $subword_method == "bpe" ]]; then
       prepare_subword_arg+=" --subword-glossary '__[A-Zz-z0-9]+(_\d+)?__'"
