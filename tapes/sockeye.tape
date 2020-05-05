@@ -97,12 +97,13 @@ task sockeye_train : sockeye
     :: transformer_attention_heads=@
     :: transformer_feed_forward_num_hidden=@
     :: initial_learning_rate=@
+    :: label_smoothing=@
     :: source_factors=@
     :: source_factors_num_embed=@
     :: source_factors_combine=@
     :: use_cpu=@
     :: num_devices=@
-    :: seed=@
+    :: seed=$train_seed
     :: .submitter=$submitter
     :: .resource_flags=$resource_flags_train
     :: .pyenv=@
@@ -153,7 +154,7 @@ task sockeye_train : sockeye
     --weight-init-xavier-factor-type=avg \
     --optimizer=adam \
     --optimized-metric=perplexity \
-    --label-smoothing=0.1 \
+    --label-smoothing=$label_smoothing \
     --gradient-clipping-threshold=-1 \
     --initial-learning-rate=$initial_learning_rate \
     --learning-rate-reduce-num-not-improved=8 \
@@ -184,13 +185,12 @@ task package_model : sockeye mosesdecoder sockeye_scripts fast_align
   < reverse_lexicon=(MaskIndex: yes="/dev/null" no=$reverse_lexicon@fast_align)
   > bundle="bundle"
   :: casing=(Casing: actual lower lower_source true)
-  :: tokenize=(Tokenizer: none default cjk)
+  :: tokenizer=(Tokenizer: none default cjk)
   :: mask=(DoMasking: no="no" yes="yes")
   :: masking_pattern_files=@
   :: masking_dict_files=@
   :: masking_add_index=@
   :: masking_unmask=@
-  :: tokenizer=@
   :: tokenize_protect=@
   :: subword_method=(SubwordMethod: sentencepiece bpe none)
   :: use_factors=(SourceFactors: no yes)
@@ -266,38 +266,10 @@ task package_model : sockeye mosesdecoder sockeye_scripts fast_align
     post_cmd+=" | \$rundir/sockeye_scripts/preparation/prepare.py --input-field text --undo --subword-type $subword_method"
   fi
 
-  if [[ $tokenize == "yes" ]]; then
+  if [[ $tokenizer == "cjk" ]]; then
     mkdir tokenizer
-    cp -a ${mosesdecoder}/scripts/tokenizer/* tokenizer/
-    cp -a ${mosesdecoder}/scripts/share .
-    if [[ $tokenize_protect == "" ]]; then
-        tokenize_protect="basic-protected-patterns"
-    else
-        cp $tokenize_protect tokenizer/protect.txt
-        tokenize_protect="protect.txt"
-    fi
-
-    tokenizer_cmd=""
-    if [[ $tokenizer == "kytea" && $SRC == "ja" ]]; then
-        tokenizer_cmd="~mpost/code/kytea/src/bin/kytea -model ~mpost/code/kytea/data/model.bin -out tok"
-    else
-        tokenizer_cmd="\$rundir/normalize-punctuation.perl -b -l $SRC \\
-          | \$rundir/remove-non-printing-char.perl -b \\
-          | \$rundir/tokenizer.perl -b -l $SRC -no-escape -protected \$rundir/$tokenize_protect -q"
-    fi
-    cat > tokenizer/tokenizer <<EOF
-#!/bin/bash
-
-rundir=\$(dirname \$0)
-$tokenizer_cmd
-EOF
-    chmod 755 tokenizer/tokenizer
-    if [[ $tokenizer == "default" && ( $SRC == "zh" || $SRC == "ja" || $SRC == "ko" ) ]]; then
-      cp ${sockeye_scripts}/cjk/segment-cjk.py tokenizer/
-      pre_cmd+=" | \$rundir/tokenizer/segment-cjk.py --json"
-    fi
-
-    pre_cmd+=" | \$rundir/sockeye_scripts/preparation/wrap_in_json text tok_text \$rundir/tokenizer/tokenizer"
+    cp ${sockeye_scripts}/cjk/segment-cjk.py tokenizer/
+    pre_cmd+=" | \$rundir/tokenizer/segment-cjk.py --json"
   fi
 
   prepare_casing_arg=""
@@ -326,7 +298,7 @@ EOF
     pre_cmd+=" | PYTHONPATH=\$rundir/sockeye_scripts python3 -m source_factors.compute --json $source_factors"
   fi  
 
-  if [[ $tokenize == "yes" ]]; then
+  if [[ $tokenizer == "default" ]]; then
     post_cmd+=" | \$rundir/sockeye_scripts/preparation/wrap_in_json text detok_translation \"\$rundir/tokenizer/detokenizer.perl -q -b -l $TRG\""
   fi
 
@@ -397,4 +369,37 @@ task decode : sockeye tools
   #   cat corpus | python3 ${fast_align}/src/force_align.py $forward_lexicon $forward_log $reverse_lexicon $reverse_log grow-diag-final-and > alignments
   #   cat ${out}.json | python3 ${sockeye_scripts}/masking/replace_masks.py -a alignments > t
   # fi
+}
+
+task decode_straight : sockeye tools
+  < in=$prepared_data_src[DataSection:test]
+  < model=$model@sockeye_train
+  > out="out"
+  :: num_devices=@
+  :: test_max_sent_length=@
+  :: test_beam_size=@
+  :: test_batch_size=@
+  :: use_cpu=@
+  :: .submitter=$submitter
+  :: .action_flags=@
+  :: .resource_flags=$resource_flags_decode
+  :: .pyenv=@ {
+
+  if [[ $use_cpu == "yes" ]]; then
+    device_flag="--use-cpu"
+  else
+    device_flag="--device-ids -1"
+  fi
+
+  ln -sf $in corpus.in
+
+  export PYTHONPATH=${sockeye}
+  cat $in | python3 -m sockeye.translate \
+    -m $model \
+    $device_flag \
+    --disable-device-locking \
+    --beam-size $test_beam_size \
+    --batch-size $test_batch_size \
+    --max-input-len $test_max_sent_length \
+    > $out
 }

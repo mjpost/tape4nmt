@@ -43,3 +43,30 @@ task sacrebleu : sacrebleu
   cat $sys | sacrebleu $sacrebleu_args $ref | cut -d' ' -f1 > $signature
   cat $sys | sacrebleu $sacrebleu_args $ref -b > $bleu
 }
+
+task sacrebleu_straight : sacrebleu sentencepiece mosesdecoder
+  < sys=$out@decode_straight
+  < ref=$raw_data_test_trg
+  < sp_model=$trg_model@train_sentencepiece
+  > bleu
+  > signature
+  :: tokenizer=(Tokenizer: none default cjk)
+  :: sacrebleu_args=@
+  :: TRG=@
+  :: .submitter=shell
+  :: .pyenv=@ {
+
+  ln $sys sys
+  sys="sys"
+
+  cat $sys | ${sentencepiece}/build/src/spm_decode --model $sp_model > sys.debpe
+  sys="sys.debpe"
+
+  if [[ $tokenizer == "default" ]]; then
+    cat $sys | ${mosesdecoder}/scripts/tokenizer/detokenizer.perl -l $lang -b -q > sys.detok
+    sys="sys.detok"
+  fi
+
+  cat $sys | sacrebleu $sacrebleu_args $ref | cut -d' ' -f1 > $signature
+  cat $sys | sacrebleu $sacrebleu_args $ref -b > $bleu
+}
