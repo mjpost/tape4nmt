@@ -1,5 +1,5 @@
 package sockeye :: .versioner=git .repo="https://github.com/awslabs/sockeye" .ref=HEAD { }
-package sacrebleu :: .versioner=pip .package="sacrebleu" .tag="1.3.7" { }
+package sacrebleu :: .versioner=pip .package="sacrebleu" .tag="1.4.9" { }
 package subword_nmt :: .versioner=pip .package="subword-nmt" .tag="0.3.6" { }
 package sockeye_scripts :: .versioner=git .repo="/home/hltcoe/mpost/code/sockeye-scripts" .ref=HEAD { }
 package fast_align :: .versioner=git .repo="https://github.com/clab/fast_align" .ref=HEAD { 
@@ -17,7 +17,7 @@ package mosesdecoder :: .versioner=git .repo="https://github.com/moses-smt/moses
   echo '__[A-Za-z0-9]+(_\d+)?__' >> scripts/tokenizer/basic-protected-patterns
 }
 
-package sentencepiece :: .versioner=git .repo="https://github.com/google/sentencepiece" .ref="tags/v0.1.8" {
+package sentencepiece :: .versioner=git .repo="https://github.com/google/sentencepiece" .ref=HEAD {
   mkdir build
   cd build
   cmake ..
