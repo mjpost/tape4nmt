@@ -114,11 +114,13 @@ task apply_sentencepiece : sentencepiece
   < trg_in=$recased_data_trg
   < src_model=$src_model@train_sentencepiece
   < trg_model=$trg_model@train_sentencepiece
+  < src_vocab=$src_vocab@train_sentencepiece
+  < trg_vocab=$trg_vocab@train_sentencepiece
   > src
   > trg
   :: sentencepiece_alpha=@ {
 
-  cat $src_in | ${sentencepiece}/build/src/spm_encode --model $src_model --output_format sample_piece --alpha $sentencepiece_alpha > $src &
-  cat $trg_in | ${sentencepiece}/build/src/spm_encode --model $trg_model --output_format sample_piece --alpha $sentencepiece_alpha > $trg &
+  cat $src_in | ${sentencepiece}/build/src/spm_encode --model $src_model --vocabulary=$src_vocab --output_format sample_piece --alpha $sentencepiece_alpha > $src &
+  cat $trg_in | ${sentencepiece}/build/src/spm_encode --model $trg_model --vocabulary=$trg_vocab --output_format sample_piece --alpha $sentencepiece_alpha > $trg &
   wait
 }
