@@ -46,6 +46,7 @@ task prepare_data : sockeye
     > data
     :: train_maxlen=@
     :: source_factors=@
+    :: train_joint_vocab=@
     :: seed=@
     :: .submitter=$submitter
     :: .resource_flags=$resource_flags_16g
@@ -64,11 +65,16 @@ task prepare_data : sockeye
   module unload cuda100/toolkit
   module load cuda92/toolkit
 
+  shared_flag=""
+  if [[ $train_joint_vocab == "yes" ]]; then
+    shared_flag="--shared-vocab"
+  fi
+
   python3 -m sockeye.prepare_data \
       --source $train_src_in \
       $source_factors_flag \
       --target $train_trg_in \
-      --shared-vocab \
+      $shared_flag \
       --word-min-count 2:2 \
       --bucket-width 10 \
       --max-seq-len $train_maxlen \
@@ -83,12 +89,17 @@ task sockeye_train : sockeye
     < dev_trg=$prepared_data_trg[DataSection:dev]
     < dev_factor_files=(SourceFactors: no="/dev/null" yes=$factor_files@compute_source_factors[DataSection:dev])
     > model
+    :: subword_vocab_size=@
+    :: train_joint_vocab=@
     :: use_source_factors=(SourceFactors: no yes)
     :: train_batch_type=@
     :: train_batch_size=@
     :: train_max_checkpoints_not_improved=@
     :: train_checkpoint_freq=@
     :: train_num_decode_and_eval=@
+    :: train_min_epochs=@
+    :: train_max_epochs=@
+    :: update_interval=@
     :: encoder_type=@
     :: decoder_type=@
     :: num_layers=@
@@ -98,12 +109,14 @@ task sockeye_train : sockeye
     :: transformer_feed_forward_num_hidden=@
     :: initial_learning_rate=@
     :: label_smoothing=@
+    :: gradient_clipping_threshold=@
     :: source_factors=@
     :: source_factors_num_embed=@
     :: source_factors_combine=@
     :: use_cpu=@
     :: num_devices=@
     :: seed=$train_seed
+    :: num_models_to_keep=@
     :: .submitter=$submitter
     :: .resource_flags=$resource_flags_train
     :: .pyenv=@
@@ -124,17 +137,24 @@ task sockeye_train : sockeye
 
   export PYTHONPATH=${sockeye}
 
+  shared_flag="--weight-tying-type trg_softmax"
+  if [[ $train_joint_vocab == "yes" ]]; then
+    shared_flag="--weight-tying --weight-tying-type src_trg_softmax"
+  fi
+
   python3 -m sockeye.train \
     -o $model \
     $device \
     --seed=$seed \
     --disable-device-locking \
     --prepared-data $prepared_data \
+    --num-words $subword_vocab_size \
     --num-embed=$num_embed \
     $source_factors_flag \
     --validation-source $dev_src \
     --validation-target $dev_trg \
     $dev_factors_flag \
+    $shared_flag \
     --encoder=$encoder_type \
     --decoder=$decoder_type \
     --num-layers=$num_layers \
@@ -147,15 +167,14 @@ task sockeye_train : sockeye
     --transformer-dropout-attention=0.1 \
     --transformer-dropout-act=0.1 \
     --transformer-dropout-prepost=0.1 \
-    --weight-tying \
-    --weight-tying-type=src_trg_softmax \
+    --update-interval=$update_interval \
     --weight-init=xavier \
     --weight-init-scale=3.0 \
     --weight-init-xavier-factor-type=avg \
     --optimizer=adam \
     --optimized-metric=perplexity \
     --label-smoothing=$label_smoothing \
-    --gradient-clipping-threshold=-1 \
+    --gradient-clipping-threshold=$gradient_clipping_threshold \
     --initial-learning-rate=$initial_learning_rate \
     --learning-rate-reduce-num-not-improved=8 \
     --learning-rate-reduce-factor=0.9 \
@@ -168,7 +187,9 @@ task sockeye_train : sockeye
     --checkpoint-frequency=$train_checkpoint_freq \
     --decode-and-evaluate=$train_num_decode_and_eval \
     --decode-and-evaluate-use-cpu \
-    --keep-last-params=10
+    --min-num-epochs $train_min_epochs \
+    --max-num-epochs $train_max_epochs \
+    --keep-last-params=$num_models_to_keep 
 }
 
 # Takes all the data and builds a packaged model directory.
