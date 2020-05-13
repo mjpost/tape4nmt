@@ -20,7 +20,7 @@ task download_or_link : tools mosesdecoder
   :: SRC=@
   :: TRG=@
   :: section=(DataSection: train dev test)
-  :: testing=(TestMode: no yes)
+  :: testmode=@
   :: train_clean_ratio=@
   :: train_maxlen=@
   :: data_maxlines=@
@@ -35,12 +35,12 @@ task download_or_link : tools mosesdecoder
       # Remove "sacrebleu://" from the prefix
       test_set=${prefix##*://}
       sacrebleu -t ${test_set} -l ${SRC}-${TRG} --echo both | ${tools}/bin/unpaste -a $src $trg
-      if [[ $testing == "yes" ]]; then
+      if [[ $testmode == "yes" ]]; then
         head -n 20 $src > t; mv t $src
         head -n 20 $trg > t; mv t $trg
       fi
     else
-      if [[ $testing == "yes" ]]; then
+      if [[ $testmode == "yes" ]]; then
         if [[ $section == "train" ]]; then
           numlines=10000
         else

@@ -14,6 +14,8 @@ global {
   # All ducttape files will be written underneath this directory
   ducttape_output="out"
 
+  testmode=no
+
   encoder_type="transformer"
   decoder_type="transformer"
 
@@ -44,11 +46,11 @@ global {
   source_factors_num_embed="512 512"
 
   # MASKING
-  masking_add_index=(MaskIndex: yes no)
+  masking_add_index=no
   masking_pattern_files="/home/hltcoe/mpost/code/tape4nmt/patterns.txt"
   masking_dict_files="/dev/null"
   masking_prob=1.0
-  masking_unmask=(MaskIndex: yes="none" no="attention")  # values "none", "attention", or "align"
+  masking_unmask=none
 
   # EVALUATION
   sacrebleu_args="-lc"
