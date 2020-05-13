@@ -18,7 +18,7 @@ task multi_bleu : mosesdecoder
   fi
 }
 
-task sacrebleu : sacrebleu
+task sacrebleu
     < sys_in=$out@decode
     < ref_in=$raw_data_test_trg
     > bleu
@@ -44,7 +44,7 @@ task sacrebleu : sacrebleu
   cat $sys | sacrebleu $sacrebleu_args $ref -b > $bleu
 }
 
-task sacrebleu_straight : sacrebleu sentencepiece mosesdecoder
+task sacrebleu_straight : sentencepiece mosesdecoder
   < sys=$out@decode_straight
   < ref=$raw_data_test_trg
   < sp_model=$trg_model@train_sentencepiece

@@ -1,5 +1,4 @@
 package sockeye :: .versioner=git .repo="https://github.com/awslabs/sockeye" .ref=HEAD { }
-package sacrebleu :: .versioner=pip .package="sacrebleu" .tag="1.4.9" { }
 package subword_nmt :: .versioner=pip .package="subword-nmt" .tag="0.3.6" { }
 package sockeye_scripts :: .versioner=git .repo="/home/hltcoe/mpost/code/sockeye-scripts" .ref=HEAD { }
 package fast_align :: .versioner=git .repo="https://github.com/clab/fast_align" .ref=HEAD { 
