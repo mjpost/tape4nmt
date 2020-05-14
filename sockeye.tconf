@@ -28,14 +28,15 @@ global {
   transformer_attention_heads=8
   transformer_feed_forward_num_hidden=2048
   train_batch_type="word"
-  train_batch_size=(BatchSize: normal=4096 bigger=8192 large=16384)
-  train_checkpoint_freq=10000
-  train_max_checkpoints_not_improved=32
+  train_batch_size=(BatchSize: 4096 8192 16384)
+  train_checkpoint_interval=20000
+  train_max_checkpoints_not_improved=10
+  train_num_decode_and_eval=250
+  optimized_metric=bleu
   initial_learning_rate=0.0002
   label_smoothing=0.1
   gradient_clipping_threshold=1
-  train_num_decode_and_eval=500
-  train_min_epochs=10
+  train_min_epochs=5
   train_max_epochs=100
   num_models_to_keep=-1
   update_interval=1
@@ -127,5 +128,5 @@ global {
 
 plan transformer {
   reach sacrebleu via
-    (SubwordMethod: sentencepiece) * (Tokenizer: none cjk) * (CheckPoint: default) * (Joint: no) * (TestSet: *)
+    (SubwordMethod: sentencepiece) * (Tokenizer: none cjk) * (Joint: no) * (TestSet: *)
 }

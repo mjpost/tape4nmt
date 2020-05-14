@@ -95,10 +95,11 @@ task sockeye_train : sockeye
     :: train_batch_type=@
     :: train_batch_size=@
     :: train_max_checkpoints_not_improved=@
-    :: train_checkpoint_freq=@
+    :: train_checkpoint_interval=@
     :: train_num_decode_and_eval=@
     :: train_min_epochs=@
     :: train_max_epochs=@
+    :: optimized_metric=@
     :: update_interval=@
     :: encoder_type=@
     :: decoder_type=@
@@ -172,7 +173,7 @@ task sockeye_train : sockeye
     --weight-init-scale=3.0 \
     --weight-init-xavier-factor-type=avg \
     --optimizer=adam \
-    --optimized-metric=perplexity \
+    --optimized-metric=$optimized_metric \
     --label-smoothing=$label_smoothing \
     --gradient-clipping-threshold=$gradient_clipping_threshold \
     --initial-learning-rate=$initial_learning_rate \
@@ -184,7 +185,7 @@ task sockeye_train : sockeye
     --max-num-checkpoint-not-improved $train_max_checkpoints_not_improved \
     --batch-type=$train_batch_type \
     --batch-size=$train_batch_size \
-    --checkpoint-frequency=$train_checkpoint_freq \
+    --checkpoint-interval=$train_checkpoint_interval \
     --decode-and-evaluate=$train_num_decode_and_eval \
     --decode-and-evaluate-use-cpu \
     --min-num-epochs $train_min_epochs \
