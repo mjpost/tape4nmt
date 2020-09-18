@@ -20,7 +20,6 @@ task download_or_link : tools mosesdecoder
   :: SRC=@
   :: TRG=@
   :: section=(DataSection: train dev test)
-  :: testmode=@
   :: train_clean_ratio=@
   :: train_maxlen=@
   :: data_maxlines=@
@@ -29,33 +28,19 @@ task download_or_link : tools mosesdecoder
 
   rm -f $src $trg
   for prefix in $prefixes; do
-    if [[ $prefix == sacrebleu://* ]]; then
-      # format: "sacrebleu://test-set" (language pair taken from $SRC and $TRG)
+    if [[ $prefix == sacrebleu:* ]]; then
+      # format: "sacrebleu:test-set" (language pair taken from $SRC and $TRG)
 
-      # Remove "sacrebleu://" from the prefix
-      test_set=${prefix##*://}
+      # Remove "sacrebleu:" from the prefix
+      test_set=${prefix##*:}
       sacrebleu -t ${test_set} -l ${SRC}-${TRG} --echo both | ${tools}/bin/unpaste -a $src $trg
-      if [[ $testmode == "yes" ]]; then
-        head -n 20 $src > t; mv t $src
-        head -n 20 $trg > t; mv t $trg
-      fi
     else
-      if [[ $testmode == "yes" ]]; then
-        if [[ $section == "train" ]]; then
-          numlines=10000
-        else
-          numlines=20
-        fi
-        head -n $numlines $prefix.$SRC >> $src    
-        head -n $numlines $prefix.$TRG >> $trg
-      else
         if [[ $data_maxlines -gt 0 ]]; then
           # take only a random sample of $data_maxlines
           ${tools}/bin/zpaste $prefix.{$SRC,$TRG} | rand-sample --seed $seed $data_maxlines | ${tools}/bin/unpaste -a $src $trg
         else
           ${tools}/bin/zpaste $prefix.{$SRC,$TRG} | ${tools}/bin/unpaste -a $src $trg
         fi
-      fi
     fi
   done
 

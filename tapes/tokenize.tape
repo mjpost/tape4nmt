@@ -1,19 +1,19 @@
 global {
   tokenized_data_src=(Tokenizer:
-    none=$masked_data_src
+    none=$raw_data_src
     default=$src@tokenize
     cjk=$src@tokenize
   )
   tokenized_data_trg=(Tokenizer:
-    none=$masked_data_trg
+    none=$raw_data_trg
     default=$trg@tokenize
     cjk=$trg@tokenize
   )
 }
 
 task tokenize : mosesdecoder tools sockeye_scripts
-  < src_in=$masked_data_src
-  < trg_in=$masked_data_trg
+  < src_in=$raw_data_src
+  < trg_in=$raw_data_trg
   > src
   > trg
   :: SRC=@ TRG=@
@@ -37,13 +37,11 @@ task tokenize : mosesdecoder tools sockeye_scripts
         cat $get \
           | ${mosesdecoder}/scripts/tokenizer/normalize-punctuation.perl -l $lang \
           | ${sockeye_scripts}/cjk/segment-cjk.py \
-          | ${mosesdecoder}/scripts/tokenizer/remove-non-printing-char.perl \
           > $put &
 
     elif [[ $tokenizer == "default" && ( $lang == "zh" || $lang == "ja" || $lang == "ko" ) ]]; then
         cat $get | ${sockeye_scripts}/cjk/segment-cjk.py \
           | ${mosesdecoder}/scripts/tokenizer/normalize-punctuation.perl -l $lang \
-          | ${mosesdecoder}/scripts/tokenizer/remove-non-printing-char.perl \
           | ${mosesdecoder}/scripts/tokenizer/tokenizer.perl -l $lang -no-escape -protected ${tokenize_protect} -q \
           > $put &
 

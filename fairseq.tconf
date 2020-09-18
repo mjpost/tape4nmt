@@ -1,9 +1,12 @@
 global {
   SRC=zh
   TRG=en
-  train_prefix="/exp/mpost/whale20/data/zh-en/generaldomain.train.raw"
-  dev_prefix="/exp/mpost/whale20/data/zh-en/generaldomain.dev.raw"
-  test_prefix="/exp/mpost/whale20/data/zh-en/generaldomain.test.raw"
+  train_prefix=(TrainData:
+    default="/exp/mpost/multi20/runs/zh-en/data/train"
+    backtrans="/exp/mpost/multi20/runs/zh-en/data/train /export/common/data/corpora/bitext/zh-en/raw/wmt20backtrans/news.backtrans.en-zh"
+  )
+  dev_prefix="sacrebleu:wmt18"
+  test_prefix="sacrebleu:wmt19"
 }
 
 global {
@@ -80,7 +83,7 @@ global {
   resource_flags_16cpu="-l mem_free=16g,num_proc=16,h_rt=12:00:00"
 
   # SGE: flags for training a model
-  resource_flags_train=(NumGPUs: 4="-q gpu.q@@2080 -l gpu=4,mem_free=4g,h_rt=168:00:00" 2="-q gpu.q@@2080 -l gpu=2,mem_free=4g,h_rt=168:00:00" 1="-q gpu.q@@2080 -l gpu=1,mem_free=4g,h_rt=168:00:00")
+  resource_flags_train="-q gpu.q@@rtx -l gpu=2,mem_free=4g,h_rt=168:00:00"
 
   # SGE: flags for decoding
   resource_flags_decode="-q gpu.q -l gpu=1,mem_free=4g,h_rt=4:00:00"
@@ -90,7 +93,7 @@ global {
   action_flags_success="-m ae -M post@cs.jhu.edu"
 
   # The default submitter: shell (run locally) or sge (run on a grid)
-  submitter=(TestMode: no="sge" yes="shell")
+  submitter=sge
 
   # Virtual env location. This should be a file path to the virtual env you want loaded before tasks.
   # This variable supports both conda and Python's virtualenv. For conda, use "conda:ENV" as the value,
@@ -107,16 +110,14 @@ global {
   tokenizer=default
 
   # sentencepiece options
-  subword_joint_model=no
-  sentencepiece_vocab_size="5000:5000"
+  subword_joint_model=(SubwordShared: yes no)
   subword_coverage_src=0.995
   subword_coverage_trg=0.995
-#  subword_coverage_trg=(Lang: hu=1.0 ko=1.0 ja=0.995 pt=1.0 vi=1.0)
   sentencepiece_model_type="unigram"
   sentencepiece_alpha=0.5
 
-  # no of BPE operations
-  bpe_operations=32000
+  # subword args
+  subword_vocab_size="5000"
 
   # options for cleaning training data
   train_maxlen=100
@@ -125,18 +126,15 @@ global {
   seed=44
 
   # MASKING
-  masking_add_index=(MaskIndex: yes no)
+  masking_add_index=no
   masking_pattern_files="/home/hltcoe/mpost/code/tape4nmt/patterns.txt"
   masking_dict_files="/dev/null"
   masking_prob=1.0
 
-  use_cpu=(TestMode: no yes)
+  use_cpu=no
 }
 
 plan transformer {
   reach sacrebleu, package_model via
-    (SubwordMethod: sentencepiece) * (DoTokenize: no) * (Casing: lower) * (Lang: *)
-
-  reach sacrebleu, package_model via
-    (SubwordMethod: sentencepiece) * (DoTokenize: no) * (Casing: lower) * (Lang: ja) * (UpdateFreq: *) * (NumGPUs: 1)
+    (SubwordMethod: sentencepiece) * (Tokenizer: none cjk)
 }

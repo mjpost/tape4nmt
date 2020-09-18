@@ -7,9 +7,6 @@ import "versioners.tape"
 # download all the data to the local directory
 import "download.tape"
 
-# perform masking on reserved symbols to improve consistency 
-import "mask.tape"
-
 # fast align for unmasking
 import "fast_align.tape"
 

@@ -37,16 +37,11 @@ task apply_bpe : subword_nmt
   < trg_in=$recased_data_trg
   < src_model=$src_model@train_bpe
   < trg_model=$trg_model@train_bpe
-  < observed_masks=(DoMasking: no="/dev/null" yes=$masks@mask[DataSection:train])
   > src
   > trg
-  :: masking=(DoMasking: no yes)
   :: .submitter=$submitter .action_flags=$action_flags .resource_flags=$resource_flags_16cpu {
 
   glossary_flag=""
-  if [[ $observed_masks != "/dev/null" ]]; then
-    glossary_flag="--glossaries '__[A-Za-z0-9]+(_\d+)?__'"
-  fi
 
   echo "GLOSSARY FLAG: $glossary_flag"
 
@@ -61,7 +56,6 @@ task apply_bpe : subword_nmt
 task train_sentencepiece : sentencepiece
   < src_in=$recased_data_src[DataSection:train]
   < trg_in=$recased_data_trg[DataSection:train]
-  < observed_masks=(DoMasking: no="/dev/null" yes=$masks@mask[DataSection:train])
   > src_model="sp.src.model"
   > trg_model="sp.trg.model"
   > src_vocab="sp.src.vocab"
@@ -76,9 +70,6 @@ task train_sentencepiece : sentencepiece
   :: .action_flags=@ {
 
   glossary_flag=""
-  if [[ $observed_masks != "/dev/null" ]]; then
-    glossary_flag="--user_defined_symbols $(cat $observed_masks)"
-  fi  
 
   if [[ $subword_joint_model == "yes" ]]; then
     ${sentencepiece}/build/src/spm_train --input $src_in,$trg_in --model_prefix sp --vocab_size $sentencepiece_vocab_size $glossary_flag --character_coverage $subword_coverage_src --model_type $sentencepiece_model_type
