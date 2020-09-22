@@ -31,7 +31,7 @@ package tools :: .versioner=git .repo="https://github.com/shuoyangd/tape4nmt-too
 # common tools (unpaste, debpe)
 package bin :: .versioner=git .repo="https://github.com/mjpost/bin" .ref=HEAD { }
 
-package fairseq :: .versioner=git .repo="https://github.com/mjpost/fairseq" .ref="stable" {
+package fairseq :: .versioner=git .repo="https://github.com/pytorch/fairseq" .ref=HEAD {
   python setup.py build develop
 }
 

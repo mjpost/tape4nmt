@@ -59,7 +59,7 @@ task binarize_data : fairseq
     join=" --joined-dictionary"
   fi
 
-  fairseq-preprocess \
+  PYTHONPATH=$fairseq python -m fairseq_cli.preprocess \
     --source-lang $SRC --target-lang $TRG \
     --trainpref train \
     --validpref dev \
@@ -101,7 +101,7 @@ task fairseq_train : fairseq
     :: .pyenv=@
     :: .action_flags=$action_flags_success {
 
-  fairseq-train \
+  PYTHONPATH=$fairseq python -m fairseq_cli.train \
     $in \
     --patience $train_patience \
     --save-dir $model \
@@ -349,10 +349,14 @@ task decode : fairseq bin
     :: .resource_flags=$resource_flags_decode
     :: .pyenv=@ {
 
-  cmd="python $fairseq/interactive.py --path $model/checkpoint_best.pt $binarized_data_dir --beam $test_beam_size --source-lang $SRC --target-lang $TRG"
+  PYTHONPATH=$fairseq python -m fairseq_cli.interactive \
+    --path $model/checkpoint_best.pt $binarized_data_dir \
+    --beam $test_beam_size \
+    --source-lang $SRC \
+    --target-lang $TRG \
+    < $in \
+    > decode.log
 
-  echo $cmd
-  $cmd < $in > decode.log
   cat decode.log | grep ^H | cut -f3 | ${bin}/debpe > $out
 }
 
