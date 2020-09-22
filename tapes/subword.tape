@@ -72,7 +72,16 @@ task train_sentencepiece : sentencepiece
   glossary_flag=""
 
   if [[ $subword_joint_model == "yes" ]]; then
-    ${sentencepiece}/build/src/spm_train --input $src_in,$trg_in --model_prefix sp --vocab_size $sentencepiece_vocab_size $glossary_flag --character_coverage $subword_coverage_src --model_type $sentencepiece_model_type
+    ${sentencepiece}/build/src/spm_train \
+      --input $src_in,$trg_in \
+      --model_prefix sp \
+      --vocab_size $sentencepiece_vocab_size \
+      $glossary_flag \
+      --character_coverage $subword_coverage_src \
+      --model_type $sentencepiece_model_type \
+      --input_sentence_size=10000000 \
+      --shuffle_input_sentence=true
+
     ln -sf sp.model $src_model
     ln -sf sp.model $trg_model
     ln -sf sp.vocab $src_vocab
@@ -111,7 +120,20 @@ task apply_sentencepiece : sentencepiece
   > trg
   :: sentencepiece_alpha=@ {
 
-  cat $src_in | ${sentencepiece}/build/src/spm_encode --model $src_model --vocabulary=$src_vocab --output_format sample_piece --alpha $sentencepiece_alpha > $src &
-  cat $trg_in | ${sentencepiece}/build/src/spm_encode --model $trg_model --vocabulary=$trg_vocab --output_format sample_piece --alpha $sentencepiece_alpha > $trg &
+  # Don't add this! The vocabulary is not the vocabulary:  --vocabulary=$src_vocab \
+  cat $src_in \
+  | ${sentencepiece}/build/src/spm_encode \
+    --model $src_model \
+    --output_format sample_piece \
+    --alpha $sentencepiece_alpha \
+  > $src &
+
+  # Don't add this! The vocabulary is not the vocabulary:  --vocabulary=$trg_vocab \
+  cat $trg_in \
+  | ${sentencepiece}/build/src/spm_encode \
+    --model $trg_model \
+    --output_format sample_piece \
+    --alpha $sentencepiece_alpha \
+   > $trg &
   wait
 }
